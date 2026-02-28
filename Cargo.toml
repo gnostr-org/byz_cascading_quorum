@@ -1,0 +1,12 @@
+[package]
+name = "byz_cascading_quorum"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.44"
+sha2 = "0.10.9"
+
+[[bin]]
+name = "byz_cascading_quorum"
+path = "src/bin/byz_cascading_quorum.rs"
