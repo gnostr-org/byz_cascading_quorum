@@ -13,6 +13,6 @@ BLOCKHEIGHT=$(gnostr --blockheight); \
 WOBBLE=$(gnostr --wobble); \
 cargo -q run > $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
 git add . && \
-gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE"
+gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow beef
 
 ```
