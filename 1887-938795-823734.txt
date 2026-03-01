@@ -1,0 +1,578 @@
+--- Round 01 ---
+Node 000 | RECOVERING  | UTC: 02:39:40.384
+Node 001 | RECOVERING  | UTC: 02:39:40.385
+Node 002 | RECOVERING  | UTC: 02:39:40.385
+Node 003 | RECOVERING  | UTC: 02:39:40.385
+Node 004 | RECOVERING  | UTC: 02:03:40.385
+Node 005 | RECOVERING  | UTC: 02:03:40.385
+Node 006 | RECOVERING  | UTC: 02:03:40.385
+Node 007 | RECOVERING  | UTC: 02:03:40.385
+Node 008 | RECOVERING  | UTC: 02:03:40.385
+Node 009 | RECOVERING  | UTC: 02:03:40.385
+--- Round 02 ---
+Node 000 | RECOVERING  | UTC: 02:32:28.385
+Node 001 | RECOVERING  | UTC: 02:32:28.385
+Node 002 | RECOVERING  | UTC: 02:32:28.385
+Node 003 | RECOVERING  | UTC: 02:32:28.385
+Node 004 | RECOVERING  | UTC: 02:10:52.385
+Node 005 | RECOVERING  | UTC: 02:10:52.385
+Node 006 | RECOVERING  | UTC: 02:10:52.385
+Node 007 | RECOVERING  | UTC: 02:10:52.385
+Node 008 | RECOVERING  | UTC: 02:10:52.385
+Node 009 | RECOVERING  | UTC: 02:10:52.385
+--- Round 03 ---
+Node 000 | RECOVERING  | UTC: 02:28:09.185
+Node 001 | RECOVERING  | UTC: 02:28:09.185
+Node 002 | RECOVERING  | UTC: 02:28:09.185
+Node 003 | RECOVERING  | UTC: 02:28:09.185
+Node 004 | RECOVERING  | UTC: 02:15:11.585
+Node 005 | RECOVERING  | UTC: 02:15:11.585
+Node 006 | RECOVERING  | UTC: 02:15:11.585
+Node 007 | RECOVERING  | UTC: 02:15:11.585
+Node 008 | RECOVERING  | UTC: 02:15:11.585
+Node 009 | RECOVERING  | UTC: 02:15:11.585
+--- Round 04 ---
+Node 000 | RECOVERING  | UTC: 02:25:33.666
+Node 001 | RECOVERING  | UTC: 02:25:33.666
+Node 002 | RECOVERING  | UTC: 02:25:33.667
+Node 003 | RECOVERING  | UTC: 02:25:33.666
+Node 004 | RECOVERING  | UTC: 02:17:47.106
+Node 005 | RECOVERING  | UTC: 02:17:47.106
+Node 006 | RECOVERING  | UTC: 02:17:47.106
+Node 007 | RECOVERING  | UTC: 02:17:47.106
+Node 008 | RECOVERING  | UTC: 02:17:47.106
+Node 009 | RECOVERING  | UTC: 02:17:47.106
+--- Round 05 ---
+Node 000 | RECOVERING  | UTC: 02:24:00.354
+Node 001 | RECOVERING  | UTC: 02:24:00.354
+Node 002 | RECOVERING  | UTC: 02:24:00.355
+Node 003 | RECOVERING  | UTC: 02:24:00.354
+Node 004 | RECOVERING  | UTC: 02:19:20.418
+Node 005 | RECOVERING  | UTC: 02:19:20.418
+Node 006 | RECOVERING  | UTC: 02:19:20.418
+Node 007 | RECOVERING  | UTC: 02:19:20.418
+Node 008 | RECOVERING  | UTC: 02:19:20.418
+Node 009 | RECOVERING  | UTC: 02:19:20.418
+--- Round 06 ---
+Node 000 | RECOVERING  | UTC: 02:23:04.367
+Node 001 | RECOVERING  | UTC: 02:23:04.367
+Node 002 | RECOVERING  | UTC: 02:23:04.368
+Node 003 | RECOVERING  | UTC: 02:23:04.367
+Node 004 | RECOVERING  | UTC: 02:20:16.405
+Node 005 | RECOVERING  | UTC: 02:20:16.405
+Node 006 | RECOVERING  | UTC: 02:20:16.405
+Node 007 | RECOVERING  | UTC: 02:20:16.405
+Node 008 | RECOVERING  | UTC: 02:20:16.405
+Node 009 | RECOVERING  | UTC: 02:20:16.405
+--- Round 07 ---
+Node 000 | RECOVERING  | UTC: 02:22:30.775
+Node 001 | RECOVERING  | UTC: 02:22:30.775
+Node 002 | RECOVERING  | UTC: 02:22:30.776
+Node 003 | RECOVERING  | UTC: 02:22:30.775
+Node 004 | RECOVERING  | UTC: 02:20:49.997
+Node 005 | RECOVERING  | UTC: 02:20:49.997
+Node 006 | RECOVERING  | UTC: 02:20:49.997
+Node 007 | RECOVERING  | UTC: 02:20:49.997
+Node 008 | RECOVERING  | UTC: 02:20:49.997
+Node 009 | RECOVERING  | UTC: 02:20:49.997
+--- Round 08 ---
+Node 000 | RECOVERING  | UTC: 02:22:10.620
+Node 001 | RECOVERING  | UTC: 02:22:10.621
+Node 002 | RECOVERING  | UTC: 02:22:10.621
+Node 003 | RECOVERING  | UTC: 02:22:10.621
+Node 004 | RECOVERING  | UTC: 02:21:10.153
+Node 005 | RECOVERING  | UTC: 02:21:10.153
+Node 006 | RECOVERING  | UTC: 02:21:10.153
+Node 007 | RECOVERING  | UTC: 02:21:10.153
+Node 008 | RECOVERING  | UTC: 02:21:10.153
+Node 009 | RECOVERING  | UTC: 02:21:10.153
+--- Round 09 ---
+Node 000 | RECOVERING  | UTC: 02:21:58.528
+Node 001 | RECOVERING  | UTC: 02:21:58.528
+Node 002 | RECOVERING  | UTC: 02:21:58.528
+Node 003 | RECOVERING  | UTC: 02:21:58.528
+Node 004 | RECOVERING  | UTC: 02:21:22.246
+Node 005 | RECOVERING  | UTC: 02:21:22.246
+Node 006 | RECOVERING  | UTC: 02:21:22.246
+Node 007 | RECOVERING  | UTC: 02:21:22.246
+Node 008 | RECOVERING  | UTC: 02:21:22.246
+Node 009 | RECOVERING  | UTC: 02:21:22.246
+--- Round 10 ---
+Node 000 | RECOVERING  | UTC: 02:21:51.272
+Node 001 | RECOVERING  | UTC: 02:21:51.272
+Node 002 | RECOVERING  | UTC: 02:21:51.272
+Node 003 | RECOVERING  | UTC: 02:21:51.272
+Node 004 | RECOVERING  | UTC: 02:21:29.502
+Node 005 | RECOVERING  | UTC: 02:21:29.502
+Node 006 | RECOVERING  | UTC: 02:21:29.502
+Node 007 | RECOVERING  | UTC: 02:21:29.502
+Node 008 | RECOVERING  | UTC: 02:21:29.502
+Node 009 | RECOVERING  | UTC: 02:21:29.502
+--- Round 11 ---
+Node 000 | RECOVERING  | UTC: 02:21:46.918
+Node 001 | RECOVERING  | UTC: 02:21:46.918
+Node 002 | RECOVERING  | UTC: 02:21:46.918
+Node 003 | RECOVERING  | UTC: 02:21:46.918
+Node 004 | RECOVERING  | UTC: 02:21:33.856
+Node 005 | RECOVERING  | UTC: 02:21:33.856
+Node 006 | RECOVERING  | UTC: 02:21:33.856
+Node 007 | RECOVERING  | UTC: 02:21:33.856
+Node 008 | RECOVERING  | UTC: 02:21:33.856
+Node 009 | RECOVERING  | UTC: 02:21:33.856
+--- Round 12 ---
+Node 000 | Synced      | UTC: 02:21:44.306
+Node 001 | Synced      | UTC: 02:21:44.306
+Node 002 | Synced      | UTC: 02:21:44.306
+Node 003 | Synced      | UTC: 02:21:44.306
+Node 004 | Synced      | UTC: 02:21:36.468
+Node 005 | Synced      | UTC: 02:21:36.469
+Node 006 | Synced      | UTC: 02:21:36.469
+Node 007 | Synced      | UTC: 02:21:36.469
+Node 008 | Synced      | UTC: 02:21:36.469
+Node 009 | Synced      | UTC: 02:21:36.469
+--- Round 13 ---
+Node 000 | Synced      | UTC: 02:21:42.740
+Node 001 | Synced      | UTC: 02:21:42.740
+Node 002 | Synced      | UTC: 02:21:42.740
+Node 003 | Synced      | UTC: 02:21:42.740
+Node 004 | Synced      | UTC: 02:21:38.036
+Node 005 | Synced      | UTC: 02:21:38.036
+Node 006 | Synced      | UTC: 02:21:38.036
+Node 007 | Synced      | UTC: 02:21:38.036
+Node 008 | Synced      | UTC: 02:21:38.036
+Node 009 | Synced      | UTC: 02:21:38.036
+--- Round 14 ---
+Node 000 | Synced      | UTC: 02:21:41.800
+Node 001 | Synced      | UTC: 02:21:41.800
+Node 002 | Synced      | UTC: 02:21:41.800
+Node 003 | Synced      | UTC: 02:21:41.800
+Node 004 | Synced      | UTC: 02:21:38.976
+Node 005 | Synced      | UTC: 02:21:38.976
+Node 006 | Synced      | UTC: 02:21:38.976
+Node 007 | Synced      | UTC: 02:21:38.976
+Node 008 | Synced      | UTC: 02:21:38.976
+Node 009 | Synced      | UTC: 02:21:38.976
+--- Round 15 ---
+Node 000 | Synced      | UTC: 02:21:41.236
+Node 001 | Synced      | UTC: 02:21:41.236
+Node 002 | Synced      | UTC: 02:21:41.236
+Node 003 | Synced      | UTC: 02:21:41.236
+Node 004 | Synced      | UTC: 02:21:39.540
+Node 005 | Synced      | UTC: 02:21:39.540
+Node 006 | Synced      | UTC: 02:21:39.540
+Node 007 | Synced      | UTC: 02:21:39.540
+Node 008 | Synced      | UTC: 02:21:39.540
+Node 009 | Synced      | UTC: 02:21:39.540
+--- Round 16 ---
+Node 000 | Synced      | UTC: 02:21:40.897
+Node 001 | Synced      | UTC: 02:21:40.897
+Node 002 | Synced      | UTC: 02:21:40.897
+Node 003 | Synced      | UTC: 02:21:40.897
+Node 004 | Synced      | UTC: 02:21:39.879
+Node 005 | Synced      | UTC: 02:21:39.879
+Node 006 | Synced      | UTC: 02:21:39.879
+Node 007 | Synced      | UTC: 02:21:39.879
+Node 008 | Synced      | UTC: 02:21:39.879
+Node 009 | Synced      | UTC: 02:21:39.879
+--- Round 17 ---
+Node 000 | Synced      | UTC: 02:21:40.695
+Node 001 | Synced      | UTC: 02:21:40.695
+Node 002 | Synced      | UTC: 02:21:40.695
+Node 003 | Synced      | UTC: 02:21:40.695
+Node 004 | Synced      | UTC: 02:21:40.083
+Node 005 | Synced      | UTC: 02:21:40.083
+Node 006 | Synced      | UTC: 02:21:40.083
+Node 007 | Synced      | UTC: 02:21:40.083
+Node 008 | Synced      | UTC: 02:21:40.083
+Node 009 | Synced      | UTC: 02:21:40.083
+
+>>> UTC SYNC REACHED. COMMENCING TOTAL TURNOVER. <<<
+
+>>> DROPPING ORIGINAL Node 000 <<<
+>>> ADDING NEWCOMER Node 010 (RECOVERING) <<<
+--- Round 18 ---
+Node 001 | Synced      | UTC: 02:21:40.573
+Node 002 | Synced      | UTC: 02:21:40.573
+Node 003 | Synced      | UTC: 02:21:40.573
+Node 004 | Synced      | UTC: 02:21:40.083
+Node 005 | Synced      | UTC: 02:21:40.083
+Node 006 | Synced      | UTC: 02:21:40.083
+Node 007 | Synced      | UTC: 02:21:40.083
+Node 008 | Synced      | UTC: 02:21:40.083
+Node 009 | Synced      | UTC: 02:21:40.083
+Node 010 | RECOVERING  | UTC: 00:51:40.266
+>>> DROPPING ORIGINAL Node 001 <<<
+>>> ADDING NEWCOMER Node 011 (RECOVERING) <<<
+--- Round 19 ---
+Node 002 | Synced      | UTC: 02:21:40.475
+Node 003 | Synced      | UTC: 02:21:40.475
+Node 004 | Synced      | UTC: 02:21:40.083
+Node 005 | Synced      | UTC: 02:21:40.083
+Node 006 | Synced      | UTC: 02:21:40.083
+Node 007 | Synced      | UTC: 02:21:40.083
+Node 008 | Synced      | UTC: 02:21:40.083
+Node 009 | Synced      | UTC: 02:21:40.083
+Node 010 | RECOVERING  | UTC: 01:27:40.192
+Node 011 | RECOVERING  | UTC: 00:51:40.266
+>>> DROPPING ORIGINAL Node 002 <<<
+>>> ADDING NEWCOMER Node 012 (RECOVERING) <<<
+--- Round 20 ---
+Node 003 | Synced      | UTC: 02:21:40.397
+Node 004 | Synced      | UTC: 02:21:40.083
+Node 005 | Synced      | UTC: 02:21:40.083
+Node 006 | Synced      | UTC: 02:21:40.083
+Node 007 | Synced      | UTC: 02:21:40.083
+Node 008 | Synced      | UTC: 02:21:40.083
+Node 009 | Synced      | UTC: 02:21:40.083
+Node 010 | RECOVERING  | UTC: 01:49:16.148
+Node 011 | RECOVERING  | UTC: 01:27:40.192
+Node 012 | RECOVERING  | UTC: 00:51:40.266
+>>> DROPPING ORIGINAL Node 003 <<<
+>>> ADDING NEWCOMER Node 013 (RECOVERING) <<<
+--- Round 21 ---
+Node 004 | RECOVERING  | UTC: 02:15:11.297
+Node 005 | RECOVERING  | UTC: 02:15:11.297
+Node 006 | RECOVERING  | UTC: 02:15:11.297
+Node 007 | RECOVERING  | UTC: 02:15:11.297
+Node 008 | RECOVERING  | UTC: 02:15:11.297
+Node 009 | RECOVERING  | UTC: 02:15:11.297
+Node 010 | RECOVERING  | UTC: 01:55:44.936
+Node 011 | RECOVERING  | UTC: 01:42:47.362
+Node 012 | RECOVERING  | UTC: 01:21:11.406
+Node 013 | RECOVERING  | UTC: 00:45:11.480
+>>> DROPPING ORIGINAL Node 004 <<<
+>>> ADDING NEWCOMER Node 014 (RECOVERING) <<<
+--- Round 22 ---
+Node 005 | RECOVERING  | UTC: 02:08:42.510
+Node 006 | RECOVERING  | UTC: 02:08:42.510
+Node 007 | RECOVERING  | UTC: 02:08:42.510
+Node 008 | RECOVERING  | UTC: 02:08:42.510
+Node 009 | RECOVERING  | UTC: 02:08:42.510
+Node 010 | RECOVERING  | UTC: 01:57:02.693
+Node 011 | RECOVERING  | UTC: 01:49:16.149
+Node 012 | RECOVERING  | UTC: 01:36:18.575
+Node 013 | RECOVERING  | UTC: 01:14:42.619
+Node 014 | RECOVERING  | UTC: 00:42:35.965
+>>> DROPPING ORIGINAL Node 005 <<<
+>>> ADDING NEWCOMER Node 015 (RECOVERING) <<<
+--- Round 23 ---
+Node 006 | RECOVERING  | UTC: 02:02:13.723
+Node 007 | RECOVERING  | UTC: 02:02:13.723
+Node 008 | RECOVERING  | UTC: 02:02:13.723
+Node 009 | RECOVERING  | UTC: 02:02:13.723
+Node 010 | RECOVERING  | UTC: 01:55:13.833
+Node 011 | RECOVERING  | UTC: 01:50:33.906
+Node 012 | RECOVERING  | UTC: 01:42:47.362
+Node 013 | RECOVERING  | UTC: 01:29:49.788
+Node 014 | RECOVERING  | UTC: 01:10:33.796
+Node 015 | RECOVERING  | UTC: 00:40:00.451
+>>> DROPPING ORIGINAL Node 006 <<<
+>>> ADDING NEWCOMER Node 016 (RECOVERING) <<<
+--- Round 24 ---
+Node 007 | RECOVERING  | UTC: 01:54:20.959
+Node 008 | RECOVERING  | UTC: 01:54:20.959
+Node 009 | RECOVERING  | UTC: 01:54:20.959
+Node 010 | RECOVERING  | UTC: 01:50:09.024
+Node 011 | RECOVERING  | UTC: 01:47:21.068
+Node 012 | RECOVERING  | UTC: 01:42:41.142
+Node 013 | RECOVERING  | UTC: 01:34:54.597
+Node 014 | RECOVERING  | UTC: 01:23:21.001
+Node 015 | RECOVERING  | UTC: 01:05:00.994
+Node 016 | RECOVERING  | UTC: 00:36:00.958
+>>> DROPPING ORIGINAL Node 007 <<<
+>>> ADDING NEWCOMER Node 017 (RECOVERING) <<<
+--- Round 25 ---
+Node 008 | RECOVERING  | UTC: 01:46:44.991
+Node 009 | RECOVERING  | UTC: 01:46:44.991
+Node 010 | RECOVERING  | UTC: 01:44:13.830
+Node 011 | RECOVERING  | UTC: 01:42:33.056
+Node 012 | RECOVERING  | UTC: 01:39:45.100
+Node 013 | RECOVERING  | UTC: 01:35:05.173
+Node 014 | RECOVERING  | UTC: 01:28:09.015
+Node 015 | RECOVERING  | UTC: 01:17:09.011
+Node 016 | RECOVERING  | UTC: 00:59:44.989
+Node 017 | RECOVERING  | UTC: 00:33:08.648
+>>> DROPPING ORIGINAL Node 008 <<<
+>>> ADDING NEWCOMER Node 018 (RECOVERING) <<<
+--- Round 26 ---
+Node 009 | RECOVERING  | UTC: 01:39:25.817
+Node 010 | RECOVERING  | UTC: 01:37:55.121
+Node 011 | RECOVERING  | UTC: 01:36:54.656
+Node 012 | RECOVERING  | UTC: 01:35:13.883
+Node 013 | RECOVERING  | UTC: 01:32:25.926
+Node 014 | RECOVERING  | UTC: 01:28:16.231
+Node 015 | RECOVERING  | UTC: 01:21:40.228
+Node 016 | RECOVERING  | UTC: 01:11:13.815
+Node 017 | RECOVERING  | UTC: 00:55:16.011
+Node 018 | RECOVERING  | UTC: 00:30:23.056
+>>> DROPPING ORIGINAL Node 009 <<<
+>>> ADDING NEWCOMER Node 019 (RECOVERING) <<<
+--- Round 27 ---
+Node 010 | RECOVERING  | UTC: 01:31:29.021
+Node 011 | RECOVERING  | UTC: 01:30:52.742
+Node 012 | RECOVERING  | UTC: 01:29:52.278
+Node 013 | RECOVERING  | UTC: 01:28:11.504
+Node 014 | RECOVERING  | UTC: 01:25:41.687
+Node 015 | RECOVERING  | UTC: 01:21:44.084
+Node 016 | RECOVERING  | UTC: 01:15:28.237
+Node 017 | RECOVERING  | UTC: 01:05:53.554
+Node 018 | RECOVERING  | UTC: 00:50:57.781
+Node 019 | RECOVERING  | UTC: 00:27:44.182
+
+>>> TURNOVER COMPLETE. WAITING FOR NEWCOMER SYNC. <<<
+
+--- Round 28 ---
+Node 010 | RECOVERING  | UTC: 01:27:37.361
+Node 011 | RECOVERING  | UTC: 01:27:15.594
+Node 012 | RECOVERING  | UTC: 01:26:39.315
+Node 013 | RECOVERING  | UTC: 01:25:38.851
+Node 014 | RECOVERING  | UTC: 01:24:08.961
+Node 015 | RECOVERING  | UTC: 01:21:46.398
+Node 016 | RECOVERING  | UTC: 01:18:00.890
+Node 017 | RECOVERING  | UTC: 01:12:16.080
+Node 018 | RECOVERING  | UTC: 01:03:18.616
+Node 019 | RECOVERING  | UTC: 00:49:22.457
+--- Round 29 ---
+Node 010 | RECOVERING  | UTC: 01:25:18.366
+Node 011 | RECOVERING  | UTC: 01:25:05.306
+Node 012 | RECOVERING  | UTC: 01:24:43.539
+Node 013 | RECOVERING  | UTC: 01:24:07.260
+Node 014 | RECOVERING  | UTC: 01:23:13.326
+Node 015 | RECOVERING  | UTC: 01:21:47.787
+Node 016 | RECOVERING  | UTC: 01:19:32.483
+Node 017 | RECOVERING  | UTC: 01:16:05.597
+Node 018 | RECOVERING  | UTC: 01:10:43.118
+Node 019 | RECOVERING  | UTC: 01:02:21.423
+--- Round 30 ---
+Node 010 | RECOVERING  | UTC: 01:23:54.969
+Node 011 | RECOVERING  | UTC: 01:23:47.133
+Node 012 | RECOVERING  | UTC: 01:23:34.072
+Node 013 | RECOVERING  | UTC: 01:23:12.305
+Node 014 | RECOVERING  | UTC: 01:22:39.945
+Node 015 | RECOVERING  | UTC: 01:21:48.620
+Node 016 | RECOVERING  | UTC: 01:20:27.438
+Node 017 | RECOVERING  | UTC: 01:18:23.306
+Node 018 | RECOVERING  | UTC: 01:15:09.819
+Node 019 | RECOVERING  | UTC: 01:10:08.802
+--- Round 31 ---
+Node 010 | RECOVERING  | UTC: 01:23:04.930
+Node 011 | RECOVERING  | UTC: 01:23:00.229
+Node 012 | RECOVERING  | UTC: 01:22:52.392
+Node 013 | RECOVERING  | UTC: 01:22:39.332
+Node 014 | RECOVERING  | UTC: 01:22:19.916
+Node 015 | RECOVERING  | UTC: 01:21:49.120
+Node 016 | RECOVERING  | UTC: 01:21:00.411
+Node 017 | RECOVERING  | UTC: 01:19:45.932
+Node 018 | RECOVERING  | UTC: 01:17:49.840
+Node 019 | RECOVERING  | UTC: 01:14:49.229
+--- Round 32 ---
+Node 010 | RECOVERING  | UTC: 01:22:34.907
+Node 011 | RECOVERING  | UTC: 01:22:32.086
+Node 012 | RECOVERING  | UTC: 01:22:27.384
+Node 013 | RECOVERING  | UTC: 01:22:19.548
+Node 014 | RECOVERING  | UTC: 01:22:07.899
+Node 015 | RECOVERING  | UTC: 01:21:49.420
+Node 016 | RECOVERING  | UTC: 01:21:20.195
+Node 017 | RECOVERING  | UTC: 01:20:35.507
+Node 018 | RECOVERING  | UTC: 01:19:25.852
+Node 019 | RECOVERING  | UTC: 01:17:37.486
+--- Round 33 ---
+Node 010 | RECOVERING  | UTC: 01:22:16.894
+Node 011 | RECOVERING  | UTC: 01:22:15.202
+Node 012 | RECOVERING  | UTC: 01:22:12.381
+Node 013 | RECOVERING  | UTC: 01:22:07.679
+Node 014 | RECOVERING  | UTC: 01:22:00.689
+Node 015 | RECOVERING  | UTC: 01:21:49.601
+Node 016 | RECOVERING  | UTC: 01:21:32.066
+Node 017 | RECOVERING  | UTC: 01:21:05.253
+Node 018 | RECOVERING  | UTC: 01:20:23.460
+Node 019 | RECOVERING  | UTC: 01:19:18.441
+--- Round 34 ---
+Node 010 | RECOVERING  | UTC: 01:22:06.086
+Node 011 | RECOVERING  | UTC: 01:22:05.071
+Node 012 | RECOVERING  | UTC: 01:22:03.378
+Node 013 | RECOVERING  | UTC: 01:22:00.557
+Node 014 | RECOVERING  | UTC: 01:21:56.363
+Node 015 | Synced      | UTC: 01:21:49.709
+Node 016 | RECOVERING  | UTC: 01:21:39.188
+Node 017 | RECOVERING  | UTC: 01:21:23.100
+Node 018 | RECOVERING  | UTC: 01:20:58.025
+Node 019 | RECOVERING  | UTC: 01:20:19.013
+--- Round 35 ---
+Node 010 | RECOVERING  | UTC: 01:21:59.601
+Node 011 | RECOVERING  | UTC: 01:21:58.992
+Node 012 | RECOVERING  | UTC: 01:21:57.976
+Node 013 | RECOVERING  | UTC: 01:21:56.284
+Node 014 | Synced      | UTC: 01:21:53.767
+Node 015 | Synced      | UTC: 01:21:49.774
+Node 016 | RECOVERING  | UTC: 01:21:43.461
+Node 017 | RECOVERING  | UTC: 01:21:33.809
+Node 018 | RECOVERING  | UTC: 01:21:18.764
+Node 019 | RECOVERING  | UTC: 01:20:55.356
+--- Round 36 ---
+Node 010 | Synced      | UTC: 01:21:56.373
+Node 011 | Synced      | UTC: 01:21:55.886
+Node 012 | Synced      | UTC: 01:21:55.073
+Node 013 | Synced      | UTC: 01:21:53.720
+Node 014 | Synced      | UTC: 01:21:52.210
+Node 015 | Synced      | UTC: 01:21:49.813
+Node 016 | Synced      | UTC: 01:21:46.025
+Node 017 | RECOVERING  | UTC: 01:21:40.234
+Node 018 | RECOVERING  | UTC: 01:21:31.207
+Node 019 | RECOVERING  | UTC: 01:21:17.162
+--- Round 37 ---
+Node 010 | Synced      | UTC: 01:21:54.305
+Node 011 | Synced      | UTC: 01:21:53.915
+Node 012 | Synced      | UTC: 01:21:53.265
+Node 013 | Synced      | UTC: 01:21:52.182
+Node 014 | Synced      | UTC: 01:21:51.276
+Node 015 | Synced      | UTC: 01:21:49.837
+Node 016 | Synced      | UTC: 01:21:47.565
+Node 017 | Synced      | UTC: 01:21:42.932
+Node 018 | RECOVERING  | UTC: 01:21:38.674
+Node 019 | RECOVERING  | UTC: 01:21:30.247
+--- Round 38 ---
+Node 010 | Synced      | UTC: 01:21:52.957
+Node 011 | Synced      | UTC: 01:21:52.645
+Node 012 | Synced      | UTC: 01:21:52.125
+Node 013 | Synced      | UTC: 01:21:51.259
+Node 014 | Synced      | UTC: 01:21:50.715
+Node 015 | Synced      | UTC: 01:21:49.851
+Node 016 | Synced      | UTC: 01:21:48.488
+Node 017 | Synced      | UTC: 01:21:44.782
+Node 018 | Synced      | UTC: 01:21:41.375
+Node 019 | RECOVERING  | UTC: 01:21:38.097
+--- Round 39 ---
+Node 010 | Synced      | UTC: 01:21:52.064
+Node 011 | Synced      | UTC: 01:21:51.814
+Node 012 | Synced      | UTC: 01:21:51.398
+Node 013 | Synced      | UTC: 01:21:50.705
+Node 014 | Synced      | UTC: 01:21:50.379
+Node 015 | Synced      | UTC: 01:21:49.859
+Node 016 | Synced      | UTC: 01:21:49.042
+Node 017 | Synced      | UTC: 01:21:46.077
+Node 018 | Synced      | UTC: 01:21:43.351
+Node 019 | Synced      | UTC: 01:21:40.729
+--- Round 40 ---
+Node 010 | Synced      | UTC: 01:21:51.460
+Node 011 | Synced      | UTC: 01:21:51.260
+Node 012 | Synced      | UTC: 01:21:50.927
+Node 013 | Synced      | UTC: 01:21:50.373
+Node 014 | Synced      | UTC: 01:21:50.177
+Node 015 | Synced      | UTC: 01:21:49.864
+Node 016 | Synced      | UTC: 01:21:49.374
+Node 017 | Synced      | UTC: 01:21:47.002
+Node 018 | Synced      | UTC: 01:21:44.821
+Node 019 | Synced      | UTC: 01:21:42.724
+--- Round 41 ---
+Node 010 | Synced      | UTC: 01:21:51.043
+Node 011 | Synced      | UTC: 01:21:50.884
+Node 012 | Synced      | UTC: 01:21:50.618
+Node 013 | Synced      | UTC: 01:21:50.175
+Node 014 | Synced      | UTC: 01:21:50.057
+Node 015 | Synced      | UTC: 01:21:49.868
+Node 016 | Synced      | UTC: 01:21:49.574
+Node 017 | Synced      | UTC: 01:21:47.677
+Node 018 | Synced      | UTC: 01:21:45.932
+Node 019 | Synced      | UTC: 01:21:44.254
+--- Round 42 ---
+Node 010 | Synced      | UTC: 01:21:50.750
+Node 011 | Synced      | UTC: 01:21:50.622
+Node 012 | Synced      | UTC: 01:21:50.410
+Node 013 | Synced      | UTC: 01:21:50.055
+Node 014 | Synced      | UTC: 01:21:49.984
+Node 015 | Synced      | UTC: 01:21:49.870
+Node 016 | Synced      | UTC: 01:21:49.694
+Node 017 | Synced      | UTC: 01:21:48.176
+Node 018 | Synced      | UTC: 01:21:46.780
+Node 019 | Synced      | UTC: 01:21:45.438
+--- Round 43 ---
+Node 010 | Synced      | UTC: 01:21:50.539
+Node 011 | Synced      | UTC: 01:21:50.437
+Node 012 | Synced      | UTC: 01:21:50.267
+Node 013 | Synced      | UTC: 01:21:49.983
+Node 014 | Synced      | UTC: 01:21:49.941
+Node 015 | Synced      | UTC: 01:21:49.871
+Node 016 | Synced      | UTC: 01:21:49.766
+Node 017 | Synced      | UTC: 01:21:48.551
+Node 018 | Synced      | UTC: 01:21:47.435
+Node 019 | Synced      | UTC: 01:21:46.361
+--- Round 44 ---
+Node 010 | Synced      | UTC: 01:21:50.385
+Node 011 | Synced      | UTC: 01:21:50.303
+Node 012 | Synced      | UTC: 01:21:50.167
+Node 013 | Synced      | UTC: 01:21:49.940
+Node 014 | Synced      | UTC: 01:21:49.915
+Node 015 | Synced      | UTC: 01:21:49.872
+Node 016 | Synced      | UTC: 01:21:49.809
+Node 017 | Synced      | UTC: 01:21:48.837
+Node 018 | Synced      | UTC: 01:21:47.944
+Node 019 | Synced      | UTC: 01:21:47.085
+--- Round 45 ---
+Node 010 | Synced      | UTC: 01:21:50.270
+Node 011 | Synced      | UTC: 01:21:50.206
+Node 012 | Synced      | UTC: 01:21:50.097
+Node 013 | Synced      | UTC: 01:21:49.915
+Node 014 | Synced      | UTC: 01:21:49.900
+Node 015 | Synced      | UTC: 01:21:49.874
+Node 016 | Synced      | UTC: 01:21:49.836
+Node 017 | Synced      | UTC: 01:21:49.058
+Node 018 | Synced      | UTC: 01:21:48.344
+Node 019 | Synced      | UTC: 01:21:47.657
+--- Round 46 ---
+Node 010 | Synced      | UTC: 01:21:50.184
+Node 011 | Synced      | UTC: 01:21:50.132
+Node 012 | Synced      | UTC: 01:21:50.045
+Node 013 | Synced      | UTC: 01:21:49.900
+Node 014 | Synced      | UTC: 01:21:49.891
+Node 015 | Synced      | UTC: 01:21:49.874
+Node 016 | Synced      | UTC: 01:21:49.851
+Node 017 | Synced      | UTC: 01:21:49.229
+Node 018 | Synced      | UTC: 01:21:48.658
+Node 019 | Synced      | UTC: 01:21:48.108
+--- Round 47 ---
+Node 010 | Synced      | UTC: 01:21:50.118
+Node 011 | Synced      | UTC: 01:21:50.076
+Node 012 | Synced      | UTC: 01:21:50.007
+Node 013 | Synced      | UTC: 01:21:49.891
+Node 014 | Synced      | UTC: 01:21:49.885
+Node 015 | Synced      | UTC: 01:21:49.874
+Node 016 | Synced      | UTC: 01:21:49.860
+Node 017 | Synced      | UTC: 01:21:49.363
+Node 018 | Synced      | UTC: 01:21:48.906
+Node 019 | Synced      | UTC: 01:21:48.466
+--- Round 48 ---
+Node 010 | Synced      | UTC: 01:21:50.067
+Node 011 | Synced      | UTC: 01:21:50.033
+Node 012 | Synced      | UTC: 01:21:49.978
+Node 013 | Synced      | UTC: 01:21:49.885
+Node 014 | Synced      | UTC: 01:21:49.882
+Node 015 | Synced      | UTC: 01:21:49.874
+Node 016 | Synced      | UTC: 01:21:49.866
+Node 017 | Synced      | UTC: 01:21:49.468
+Node 018 | Synced      | UTC: 01:21:49.103
+Node 019 | Synced      | UTC: 01:21:48.751
+--- Round 49 ---
+Node 010 | Synced      | UTC: 01:21:50.027
+Node 011 | Synced      | UTC: 01:21:50.000
+Node 012 | Synced      | UTC: 01:21:49.956
+Node 013 | Synced      | UTC: 01:21:49.882
+Node 014 | Synced      | UTC: 01:21:49.880
+Node 015 | Synced      | UTC: 01:21:49.874
+Node 016 | Synced      | UTC: 01:21:49.869
+Node 017 | Synced      | UTC: 01:21:49.551
+Node 018 | Synced      | UTC: 01:21:49.260
+Node 019 | Synced      | UTC: 01:21:48.978
+--- Round 50 ---
+Node 010 | Synced      | UTC: 01:21:49.997
+Node 011 | Synced      | UTC: 01:21:49.975
+Node 012 | Synced      | UTC: 01:21:49.940
+Node 013 | Synced      | UTC: 01:21:49.881
+Node 014 | Synced      | UTC: 01:21:49.880
+Node 015 | Synced      | UTC: 01:21:49.875
+Node 016 | Synced      | UTC: 01:21:49.872
+Node 017 | Synced      | UTC: 01:21:49.618
+Node 018 | Synced      | UTC: 01:21:49.384
+Node 019 | Synced      | UTC: 01:21:49.159
+
+>>> SUCCESS: ALL NEWCOMERS SYNCED TO UTC CONSENSUS. <<<
