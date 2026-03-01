@@ -2,7 +2,7 @@
 name = "byz_cascading_quorum"
 version = "0.1.0"
 edition = "2024"
-default_run = "byz_cascading_quorum"
+default-run = "byz_cascading_quorum"
 
 [dependencies]
 chrono = "0.4.44"
@@ -11,3 +11,7 @@ sha2 = "0.10.9"
 [[bin]]
 name = "byz_cascading_quorum"
 path = "src/bin/byz_cascading_quorum.rs"
+
+[[bin]]
+name = "utc_consensus"
+path = "src/bin/utc_consensus.rs"
