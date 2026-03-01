@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 #[derive(Debug, Clone, Copy)]
 pub struct Estimation {
     pub d: f64, 
