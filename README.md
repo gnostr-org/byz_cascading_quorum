@@ -61,5 +61,6 @@ WOBBLE=$(gnostr --wobble); cargo -q run > $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
 cargo -q run --bin utc_consensus >> $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
 cargo -q run --bin byz_time >> $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
 git add . && \
-gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow $WOBBLE
+gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow $WOBBLE && \
+gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow $WEEBLE
 ```
