@@ -105,7 +105,7 @@ impl SyncNode {
             let hash = git_sha1(input.as_bytes());
             
             if target == "00" {
-                if hash.starts_with("00") {
+                if hash.starts_with("000") {
                     self.last_hash = hash;
                     self.success = true;
                     break;
