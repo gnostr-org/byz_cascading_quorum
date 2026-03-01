@@ -28,3 +28,14 @@ cargo -q run --bin utc_consensus >> $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
 git add . && gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow beef
 
 ```
+
+### or
+
+```
+WEEBLE=$(gnostr --weeble); \
+BLOCKHEIGHT=$(gnostr --blockheight); \
+WOBBLE=$(gnostr --wobble); \
+cargo -q run > $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
+cargo -q run --bin utc_consensus >> $WEEBLE-$BLOCKHEIGHT-$WOBBLE.txt && \
+git add . && gnostr legit -m "$WEEBLE/$BLOCKHEIGHT/$WOBBLE" --pow $(gnostr --weeble)
+```
