@@ -609,7 +609,7 @@ pub fn run_byz_time() {
                 net.nodes.retain(|n| n.id != id);
 
                 let new_id = net.next_id;
-                println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
+                println!(">>> ADDING NEWCOMER Node {:03} (🟡) <<<", new_id);
                 net.nodes
                     .push(SyncNodeTime::new(new_id, 10, 3, 20.0, 800.0));
                 net.next_id += 1;
@@ -706,7 +706,7 @@ impl SyncNodeUtc {
             self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
-            self.state = String::from("RECOVERING");
+            self.state = String::from("🟡");
             (m + m_large) / 2.0
         };
 
@@ -797,7 +797,7 @@ pub fn run_utc_consensus() {
 
                 let new_id = net.next_id;
                 // Newcomer starts 2 hours (7200s) behind
-                println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
+                println!(">>> ADDING NEWCOMER Node {:03} (🟡) <<<", new_id);
                 net.nodes.push(SyncNodeUtc::new(new_id, 10, 3, 20.0, -7200));
                 net.next_id += 1;
             } else {
