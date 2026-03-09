@@ -692,8 +692,8 @@ impl SyncNodeUtc {
             (m + m_large) / 2.0
         };
 
-        // Apply 40% of the correction (halving-style convergence)
-        let apply_ms = (raw_adj_sec * 400.0) as i64;
+        // Apply 80% of the correction (halving-style convergence)
+        let apply_ms = (raw_adj_sec * 800.0) as i64;
         self.adjustment = self.adjustment + Duration::milliseconds(apply_ms);
     }
 }

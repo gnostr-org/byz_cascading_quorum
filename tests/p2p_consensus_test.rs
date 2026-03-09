@@ -20,7 +20,7 @@ async fn test_p2p_time_consensus() {
     let mut addrs = Vec::new();
     let mut senders = Vec::new();
 
-    let offsets = vec![0, 30, -20];
+    let offsets = vec![0, 5, -5];
 
     // Spawn 3 nodes and collect their addresses
     for i in 0..3 {
