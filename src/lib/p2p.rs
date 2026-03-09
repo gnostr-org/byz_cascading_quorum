@@ -1,19 +1,19 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::{Result, anyhow};
-use libp2p::futures::stream::StreamExt;
-use libp2p::{StreamProtocol, gossipsub, identify, kad, mdns, noise, ping,
+use libp2p::{
+    StreamProtocol,
+    futures::stream::StreamExt,
+    gossipsub, identify, kad, mdns, noise, ping,
     request_response::{self, ProtocolSupport},
     swarm::{NetworkBehaviour, SwarmEvent},
-    tcp, yamux, identity,
+    tcp, yamux,
 };
-use tokio::sync::Mutex;
+use serde_json;
 use terminal_size::{Width, terminal_size};
 use textwrap::{self, Options};
-use tokio::select;
+use tokio::{select, sync::Mutex};
 use tracing::{debug, warn};
-use ureq::Agent;
-use serde_json;
 
 // Placeholder for application-specific types
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -120,7 +120,7 @@ impl MessageReassembler {
 
         let mut buffer_guard = self.buffer.lock().await;
 
-        let (buffered_total_chunks, received_count, chunks) = 
+        let (buffered_total_chunks, received_count, chunks) =
             buffer_guard.entry(message_id.clone()).or_insert_with(|| {
                 debug!(
                     "AddChunk: Initializing buffer for message_id: {} with total_chunks: {}",
@@ -274,11 +274,11 @@ pub async fn evt_loop(
             yamux::Config::default,
         )?
         .with_quic()
-        .with_dns()? 
+        .with_dns()?
         .with_behaviour(|key| {
             let mut kad_config = kad::Config::new(IPFS_PROTO_NAME);
             kad_config.set_query_timeout(Duration::from_secs(120));
-            let kad_store = kad::store::MemoryStore::new(key.public().to_peer_id()); 
+            let kad_store = kad::store::MemoryStore::new(key.public().to_peer_id());
 
             Ok(MyBehaviour {
                 gossipsub: gossipsub::Behaviour::new(
@@ -294,7 +294,11 @@ pub async fn evt_loop(
                     "/ipfs/id/1.0.0".to_string(),
                     key.public(),
                 )),
-                kademlia: kad::Behaviour::with_config(key.public().to_peer_id(), kad_store, kad_config),
+                kademlia: kad::Behaviour::with_config(
+                    key.public().to_peer_id(),
+                    kad_store,
+                    kad_config,
+                ),
                 ping: ping::Behaviour::new(ping::Config::new()),
                 request_response: request_response::cbor::Behaviour::new(
                     [(
@@ -398,7 +402,7 @@ pub async fn evt_loop(
                         debug!("mDNS discovered a new peer: {peer_id}");
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                         let m = Msg::default().set_content(format!("discovered new peer: {peer_id}"), 0).set_kind(MsgKind::System);
-                        recv.send(InternalEvent::ShowInfoMsg(m.to_string())).await?;                   
+                        recv.send(InternalEvent::ShowInfoMsg(m.to_string())).await?;
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
