@@ -67,6 +67,13 @@ impl Default for MsgKind {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TimeSyncMessage {
+    pub peer_id: String,
+    pub timestamp: DateTime<Utc>,
+    pub adjustment: Duration,
+}
+
 // Placeholder for FileRequest and FileResponse
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct FileRequest(String);
@@ -251,6 +258,8 @@ pub async fn evt_loop(
 ) -> Result<()> {
     debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new()); // Create reassembler here
+    let mut net = NetworkUtc::new();
+    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(5)); // Sync every 5 seconds
 
     let keypair = libp2p::identity::Keypair::generate_ed25519();
     let public_key = keypair.public();
@@ -405,6 +414,7 @@ pub async fn evt_loop(
             }
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                    debug!("evt_loop: Mdns discovered list event.");
                     for (peer_id, _multiaddr) in list {
                         debug!("mDNS discovered a new peer: {peer_id}");
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
