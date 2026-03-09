@@ -221,6 +221,7 @@ pub struct MyBehaviour {
 
 /// async_prompt
 pub async fn async_prompt(mempool_url: String) -> String {
+    debug!("async_prompt: Fetching from mempool_url: {}", mempool_url);
     let s = tokio::spawn(async move {
         let agent: ureq::Agent = ureq::AgentBuilder::new()
             .timeout_read(Duration::from_secs(10))
