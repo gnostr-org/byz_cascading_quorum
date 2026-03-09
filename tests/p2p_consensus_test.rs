@@ -34,7 +34,7 @@ async fn test_p2p_time_consensus() {
 
         tokio::spawn(async move {
             info!("Starting Node {} with initial offset {}s", i, initial_offset);
-            if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, Some(addr_tx), initial_offset, vec![]).await {
+            if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, Some(addr_tx), initial_offset, vec![], 6).await {
                 eprintln!("Node {} error: {:?}", i, e);
             }
         });
