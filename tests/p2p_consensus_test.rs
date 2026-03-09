@@ -1,4 +1,4 @@
-use byz_time::p2p::{evt_loop, InternalEvent};
+use byz_time::p2p::evt_loop;
 use libp2p::gossipsub::IdentTopic;
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
