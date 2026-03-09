@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 use terminal_size::{Width, terminal_size};
 use textwrap::{self, Options};
 use tokio::select;
+use tokio_stream::wrappers::LinesStream;
+use tokio::io::{self, AsyncBufReadExt};
 use tracing::{debug, trace, warn};
 use serde_json;
 use chrono::{DateTime, Utc};
@@ -182,7 +184,8 @@ pub async fn evt_loop(
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
-    let mut local_node = SyncNodeUtc::new(0, 10, 3, 20.0, 0); // Local node ID 0
+    // Initializing with n=1, f=0, will adjust dynamically
+    let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, 0); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
 
@@ -246,10 +249,49 @@ pub async fn evt_loop(
     swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
+    let mut stdin = LinesStream::new(io::BufReader::new(io::stdin()).lines());
+
     loop {
+        // Dynamically adjust Byzantine parameters
+        let connected_peers_count = swarm.connected_peers().count();
+        local_node.n = connected_peers_count + 1; // Peers + local node
+        local_node.f = connected_peers_count / 3; // Standard 3f+1 tolerance
+
         select! {
+            line = stdin.next() => {
+                if let Some(Ok(line)) = line {
+                    let mut parts = line.splitn(2, ' ');
+                    let command = parts.next().unwrap_or("");
+                    let arg = parts.next().unwrap_or("");
+
+                    match command {
+                        "DIAL" => {
+                            if let Ok(addr) = arg.parse::<libp2p::Multiaddr>() {
+                                if let Err(e) = swarm.dial(addr) {
+                                    warn!("Failed to dial {}: {:?}", arg, e);
+                                }
+                            }
+                        },
+                        "TIME" => {
+                            println!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
+                            println!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
+                            println!("Connected Peers: {}", connected_peers_count);
+                            println!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
+                        },
+                        "PUB" => {
+                            let mut msg = Msg::default();
+                            msg.kind = MsgKind::Chat;
+                            msg.content = vec![arg.to_string()];
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
+                                warn!("Failed to publish message: {:?}", e);
+                            }
+                        },
+                        _ => debug!("Unknown command: {}", command),
+                    }
+                }
+            }
             _ = time_sync_interval.tick() => {
-                debug!("TimeSync: Interval tick. Estimates count: {}", peer_estimates.len());
+                debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
                 if !peer_estimates.is_empty() {
                     let estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
                     local_node.run_sync_cycle(estimates);
@@ -257,20 +299,22 @@ pub async fn evt_loop(
                     peer_estimates.clear();
                 }
 
-                // Broadcast local time
-                let sync_msg = TimeSyncMessage {
-                    peer_id: local_peer_id.to_string(),
-                    timestamp: Utc::now(),
-                    adjustment_ms: local_node.adjustment.num_milliseconds(),
-                };
-                
-                trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
-                let mut msg = Msg::default();
-                msg.kind = MsgKind::TimeSync;
-                msg.content = vec![serde_json::to_string(&sync_msg)?];
-                
-                if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
-                    warn!("TimeSync: Failed to publish time sync message: {:?}", e);
+                // Broadcast local time if we have peers
+                if connected_peers_count > 0 {
+                    let sync_msg = TimeSyncMessage {
+                        peer_id: local_peer_id.to_string(),
+                        timestamp: Utc::now(),
+                        adjustment_ms: local_node.adjustment.num_milliseconds(),
+                    };
+                    
+                    trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
+                    let mut msg = Msg::default();
+                    msg.kind = MsgKind::TimeSync;
+                    msg.content = vec![serde_json::to_string(&sync_msg)?];
+                    
+                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
+                        warn!("TimeSync: Failed to publish time sync message: {:?}", e);
+                    }
                 }
             }
             Some(event) = send.recv() => {
