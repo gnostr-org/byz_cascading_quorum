@@ -18,7 +18,6 @@ pub mod p2p {
     use libp2p_noise::noise::Config as NoiseConfig;
     use libp2p::core::upgrade;
     use libp2p::core::transport::OrTransport;
-    use libp2p::quic;
     use libp2p::tcp;
 
     #[derive(NetworkBehaviour)]
