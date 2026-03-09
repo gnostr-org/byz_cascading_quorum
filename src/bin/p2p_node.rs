@@ -1,9 +1,8 @@
 use anyhow::Result;
-use clap::Parser;
-use tracing::{debug, info};
 use byz_time::p2p::evt_loop;
-use libp2p::gossipsub::IdentTopic;
-use libp2p::Multiaddr;
+use clap::Parser;
+use libp2p::{Multiaddr, gossipsub::IdentTopic};
+use tracing::{debug, info};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -41,7 +40,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = IdentTopic::new(args.topic);
     let bootstrap_nodes = args.bootstrap.map(|a| vec![a]).unwrap_or_default();
 
-    evt_loop(send_rx, recv_tx, topic, None, args.offset, bootstrap_nodes, args.num_nodes)
-        .await
-        .map_err(anyhow::Error::into)
+    evt_loop(
+        send_rx,
+        recv_tx,
+        topic,
+        None,
+        args.offset,
+        bootstrap_nodes,
+        args.num_nodes,
+    )
+    .await
+    .map_err(anyhow::Error::into)
 }
