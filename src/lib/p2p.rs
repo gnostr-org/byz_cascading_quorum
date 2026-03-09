@@ -526,10 +526,14 @@ pub async fn evt_loop(
                                     let peer_state = msg.content.get(1).cloned().unwrap_or_else(|| "Unknown".to_string());
                                     debug!("TimeSync: Received from peer {}: {:?} (State: {})", peer_id, sync_msg, peer_state);
                                     
-                                    let s = sync_msg.system_time;
-                                    let r = Utc::now();
-                                    let c = sync_msg.system_time + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
-                                    let estimate = estimate_offset_utc(s, r, c);
+                                    let s = local_node.get_logical_utc();
+                                    let r = s;
+                                    let c = sync_msg.system_time.checked_add_signed(chrono::Duration::milliseconds(sync_msg.adjustment_ms))
+                                        .unwrap_or(sync_msg.system_time);
+                                    let mut estimate = estimate_offset_utc(s, r, c);
+                                    // For one-way gossip, we don't know the round-trip delay, 
+                                    // so we set a default uncertainty (e.g., 100ms).
+                                    estimate.a = 0.1;
                                     
                                     peer_estimates.insert(sync_msg.peer_id.clone(), estimate);
                                     peer_reports.insert(sync_msg.peer_id.clone(), (sync_msg.system_time, c, sync_msg.adjustment_ms, peer_state, sync_msg.listen_addrs));
