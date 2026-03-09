@@ -59,6 +59,7 @@ pub enum MsgKind {
     GitDiff,
     System,
     NostrEvent,
+    TimeSync,
 }
 
 impl Default for MsgKind {
