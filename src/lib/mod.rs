@@ -514,10 +514,10 @@ impl SyncNodeTime {
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adjustment = if m > -self.way_off && m_large < self.way_off {
-            self.state = String::from("Synced");
+            self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
-            self.state = String::from("RECOVERING");
+            self.state = String::from("🟡");
             (m + m_large) / 2.0
         };
 
@@ -682,7 +682,7 @@ impl SyncNodeUtc {
             f,
             way_off,
             adjustment: Duration::seconds(initial_offset_sec),
-            state: String::from("Init"),
+            state: String::from("⏲"),
         }
     }
 
