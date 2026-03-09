@@ -286,8 +286,8 @@ fn print_quorum_status(
     println!(
         "{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
         format!("{}", short_id),
-        now.format("%H:%M:%S%/3f"),
-        local_node.get_logical_utc().format("%H:%M:%S%/3f"),
+        now.format("%H:%M:%S%.3f"),
+        local_node.get_logical_utc().format("%H:%M:%S%.3f"),
         format!("{}ms", local_node.adjustment.num_milliseconds()),
         local_node.state,
         local_addr_str
@@ -308,21 +308,20 @@ fn print_quorum_status(
 
         if adj.clone() >= 0 {
             println!(
-                "{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
+                "{:<12} | {:<12} | {:<12} | +{:<9} | {:<12} | {:<20}",
                 short_peer_id,
-                system_time.format("%H:%M:%S%/3f"),
-                logical_time.format("%H:%M:%S%/3f"),
+                system_time.format("%H:%M:%S%.3f"),
+                logical_time.format("%H:%M:%S%.3f"),
                 format!("{}ms", adj), // DRIFT
                 state,
                 addr_str
             );
-        };
-        if adj.clone() < 0 {
+        } else {
             println!(
                 "{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
                 short_peer_id,
-                system_time.format("%H:%M:%S%/3f"),
-                logical_time.format("%H:%M:%S%/3f"),
+                system_time.format("%H:%M:%S%.3f"),
+                logical_time.format("%H:%M:%S%.3f"),
                 format!("{}ms", adj), // DRIFT
                 state,
                 addr_str
