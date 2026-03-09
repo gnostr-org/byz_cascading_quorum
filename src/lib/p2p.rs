@@ -293,11 +293,11 @@ pub async fn evt_loop(
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
-    let mut local_node = SyncNodeUtc::new(0, num_nodes, 0, 20.0, initial_offset_sec); 
+    let mut local_node = SyncNodeUtc::new(0, num_nodes, 0, 30.0, initial_offset_sec); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
     let mut peer_reports: HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
     let mut local_listen_addrs: Vec<Multiaddr> = Vec::new();
-    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
+    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(5));
     let mut discovery_interval = tokio::time::interval(Duration::from_secs(30));
 
     let keypair = identity::Keypair::generate_ed25519();
