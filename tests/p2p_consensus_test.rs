@@ -1,7 +1,8 @@
-use byz_time::p2p::{evt_loop, InternalEvent};
-use libp2p::gossipsub::IdentTopic;
 use std::time::Duration;
-use tracing::{info, debug};
+
+use byz_time::p2p::{InternalEvent, evt_loop};
+use libp2p::gossipsub::IdentTopic;
+use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
@@ -12,9 +13,7 @@ async fn test_p2p_time_consensus() {
         .add_directive("byz_time=info".parse().unwrap())
         .add_directive("libp2p_mdns=off".parse().unwrap());
 
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .try_init();
+    let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
 
     let topic = IdentTopic::new("consensus-test");
     let mut addrs = Vec::new();
@@ -29,12 +28,25 @@ async fn test_p2p_time_consensus() {
         let (send_tx, send_rx) = tokio::sync::mpsc::channel(100);
         let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
         let initial_offset = offsets[i];
-        
+
         senders.push(send_tx);
 
         tokio::spawn(async move {
-            info!("Starting Node {} with initial offset {}s", i, initial_offset);
-            if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, Some(addr_tx), initial_offset, vec![], 6).await {
+            info!(
+                "Starting Node {} with initial offset {}s",
+                i, initial_offset
+            );
+            if let Err(e) = evt_loop(
+                send_rx,
+                recv_tx,
+                topic_clone,
+                Some(addr_tx),
+                initial_offset,
+                vec![],
+                6,
+            )
+            .await
+            {
                 eprintln!("Node {} error: {:?}", i, e);
             }
         });
@@ -50,7 +62,9 @@ async fn test_p2p_time_consensus() {
         info!("Connecting nodes in a ring...");
         for i in 0..addrs.len() {
             let next_node_idx = (i + 1) % addrs.len();
-            let _ = senders[i].send(InternalEvent::Dial(addrs[next_node_idx].clone())).await;
+            let _ = senders[i]
+                .send(InternalEvent::Dial(addrs[next_node_idx].clone()))
+                .await;
             info!("Node {} dialing Node {}", i, next_node_idx);
         }
     }
@@ -66,13 +80,28 @@ async fn test_p2p_time_consensus() {
         let (_send_tx, send_rx) = tokio::sync::mpsc::channel(100);
         let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
         let initial_offset = 60; // Huge 1-minute offset
-        
-        info!("Starting Late Joiner Node 3 with initial offset {}s using bootstrap {}", initial_offset, bootstrap_addr);
-        if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, None, initial_offset, vec![bootstrap_addr], 6).await {
+
+        info!(
+            "Starting Late Joiner Node 3 with initial offset {}s using bootstrap {}",
+            initial_offset, bootstrap_addr
+        );
+        if let Err(e) = evt_loop(
+            send_rx,
+            recv_tx,
+            topic_clone,
+            None,
+            initial_offset,
+            vec![bootstrap_addr],
+            6,
+        )
+        .await
+        {
             eprintln!("Late Joiner Node 3 error: {:?}", e);
         }
     });
 
-    info!("Late joiner started. Observe Quorum Consensus Reports for Node 3 to join and sync. Running indefinitely.");
+    info!(
+        "Late joiner started. Observe Quorum Consensus Reports for Node 3 to join and sync. Running indefinitely."
+    );
     std::future::pending::<()>().await;
 }
