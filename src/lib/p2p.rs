@@ -287,12 +287,13 @@ pub async fn evt_loop(
     mut addr_sender: Option<tokio::sync::oneshot::Sender<Multiaddr>>,
     initial_offset_sec: i64,
     bootstrap_nodes: Vec<Multiaddr>,
+    num_nodes: usize,
 ) -> Result<()> {
     debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
-    let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, initial_offset_sec); 
+    let mut local_node = SyncNodeUtc::new(0, num_nodes, 0, 20.0, initial_offset_sec); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
     let mut peer_reports: HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
     let mut local_listen_addrs: Vec<Multiaddr> = Vec::new();

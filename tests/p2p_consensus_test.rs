@@ -20,10 +20,10 @@ async fn test_p2p_time_consensus() {
     let mut addrs = Vec::new();
     let mut senders = Vec::new();
 
-    let offsets = vec![0, 5, -5];
+    let offsets = vec![0, 5, -5, 10, -10];
 
     // Spawn 3 nodes and collect their addresses
-    for i in 0..3 {
+    for i in 0..5 {
         let topic_clone = topic.clone();
         let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
         let (send_tx, send_rx) = tokio::sync::mpsc::channel(100);
@@ -45,12 +45,14 @@ async fn test_p2p_time_consensus() {
         }
     }
 
-    // Connect nodes into a triangle
-    if addrs.len() == 3 {
-        info!("Manual connecting nodes: 0->1, 1->2, 2->0");
-        let _ = senders[0].send(InternalEvent::Dial(addrs[1].clone())).await;
-        let _ = senders[1].send(InternalEvent::Dial(addrs[2].clone())).await;
-        let _ = senders[2].send(InternalEvent::Dial(addrs[0].clone())).await;
+    // Connect nodes in a ring topology
+    if addrs.len() == 5 {
+        info!("Connecting nodes in a ring...");
+        for i in 0..addrs.len() {
+            let next_node_idx = (i + 1) % addrs.len();
+            let _ = senders[i].send(InternalEvent::Dial(addrs[next_node_idx].clone())).await;
+            info!("Node {} dialing Node {}", i, next_node_idx);
+        }
     }
 
     info!("Quorum running. Waiting 30 seconds for stabilization before late joiner...");
