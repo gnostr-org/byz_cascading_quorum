@@ -320,7 +320,7 @@ fn print_quorum_status(
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
-                format!("{}ms", adj), // DRIFT
+                format!("{ :<5}ms", adj), // DRIFT
                 state, // STATE
                 addr_str
             );
