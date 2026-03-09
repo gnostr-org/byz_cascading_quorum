@@ -416,7 +416,7 @@ pub async fn evt_loop(
             _ = time_sync_interval.tick() => {
                 debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
                 
-                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().map(|v| v.0).collect();
+                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
                 estimates.push(EstimationUtc { d: 0.0, a: 0.0 });
                 
                 if estimates.len() >= local_node.n - local_node.f {

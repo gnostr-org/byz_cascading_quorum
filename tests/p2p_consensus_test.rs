@@ -60,7 +60,7 @@ async fn test_p2p_time_consensus() {
     let bootstrap_addr = addrs[0].clone();
     let topic_clone = topic.clone();
     tokio::spawn(async move {
-        let (_addr_tx, _addr_rx) = tokio::sync::oneshot::channel();
+        let (_addr_tx, _addr_rx) = tokio::sync::oneshot::channel::<libp2p::Multiaddr>();
         let (_send_tx, send_rx) = tokio::sync::mpsc::channel(100);
         let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
         let initial_offset = 60; // Huge 1-minute offset
