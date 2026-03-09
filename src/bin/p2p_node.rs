@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tracing::{debug, trace};
+use tracing::debug;
 use byz_time::p2p::evt_loop;
 use libp2p::gossipsub::IdentTopic;
 
