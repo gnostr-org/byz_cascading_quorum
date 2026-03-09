@@ -20,12 +20,9 @@ async fn test_p2p_time_consensus() {
     let mut addrs = Vec::new();
     let mut senders = Vec::new();
 
-    // Spawn 3 nodes with different initial offsets
-    // Node 0: 0s offset
-    // Node 1: +10s offset
-    // Node 2: -15s offset
-    let offsets = vec![0, 10, -15];
+    let offsets = vec![0, 30, -20];
 
+    // Spawn 3 nodes and collect their addresses
     for i in 0..3 {
         let topic_clone = topic.clone();
         let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
@@ -37,27 +34,43 @@ async fn test_p2p_time_consensus() {
 
         tokio::spawn(async move {
             info!("Starting Node {} with initial offset {}s", i, initial_offset);
-            if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, Some(addr_tx), initial_offset).await {
+            if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, Some(addr_tx), initial_offset, vec![]).await {
                 eprintln!("Node {} error: {:?}", i, e);
             }
         });
 
-        // Wait for the node to report its address
         if let Ok(addr) = addr_rx.await {
             info!("Node {} reporting address: {}", i, addr);
             addrs.push(addr);
         }
     }
 
-    // Connect nodes: Node 0 -> Node 1, Node 1 -> Node 2
+    // Connect nodes into a triangle
     if addrs.len() == 3 {
-        info!("Manual dialing: Node 0 -> Node 1 ({})", addrs[1]);
+        info!("Manual connecting nodes: 0->1, 1->2, 2->0");
         let _ = senders[0].send(InternalEvent::Dial(addrs[1].clone())).await;
-        
-        info!("Manual dialing: Node 1 -> Node 2 ({})", addrs[2]);
         let _ = senders[1].send(InternalEvent::Dial(addrs[2].clone())).await;
+        let _ = senders[2].send(InternalEvent::Dial(addrs[0].clone())).await;
     }
 
-    info!("Simulation running indefinitely. Observe Quorum Consensus Reports in logs. Press Ctrl+C to stop.");
+    info!("Quorum running. Waiting 30 seconds for stabilization before late joiner...");
+    tokio::time::sleep(Duration::from_secs(30)).await;
+
+    // Spawn a 4th node (Late Joiner) using Node 0 as bootstrap
+    let bootstrap_addr = addrs[0].clone();
+    let topic_clone = topic.clone();
+    tokio::spawn(async move {
+        let (_addr_tx, _addr_rx) = tokio::sync::oneshot::channel();
+        let (_send_tx, send_rx) = tokio::sync::mpsc::channel(100);
+        let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
+        let initial_offset = 60; // Huge 1-minute offset
+        
+        info!("Starting Late Joiner Node 3 with initial offset {}s using bootstrap {}", initial_offset, bootstrap_addr);
+        if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, None, initial_offset, vec![bootstrap_addr]).await {
+            eprintln!("Late Joiner Node 3 error: {:?}", e);
+        }
+    });
+
+    info!("Late joiner started. Observe Quorum Consensus Reports for Node 3 to join and sync. Running indefinitely.");
     std::future::pending::<()>().await;
 }

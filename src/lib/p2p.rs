@@ -284,6 +284,7 @@ pub async fn evt_loop(
     topic: gossipsub::IdentTopic,
     mut addr_sender: Option<tokio::sync::oneshot::Sender<Multiaddr>>,
     initial_offset_sec: i64,
+    bootstrap_nodes: Vec<Multiaddr>,
 ) -> Result<()> {
     debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new());
@@ -356,6 +357,15 @@ pub async fn evt_loop(
 
     debug!("evt_loop: Swarm built with local PeerId: {}", swarm.local_peer_id());
     swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+    
+    // Dial bootstrap nodes
+    for addr in bootstrap_nodes {
+        info!("evt_loop: Dialing bootstrap node: {}", addr);
+        if let Err(e) = swarm.dial(addr) {
+            warn!("evt_loop: Failed to dial bootstrap node: {:?}", e);
+        }
+    }
+
     swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
@@ -406,7 +416,7 @@ pub async fn evt_loop(
             _ = time_sync_interval.tick() => {
                 debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
                 
-                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
+                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().map(|v| v.0).collect();
                 estimates.push(EstimationUtc { d: 0.0, a: 0.0 });
                 
                 if estimates.len() >= local_node.n - local_node.f {
@@ -467,6 +477,8 @@ pub async fn evt_loop(
                 },
                 SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                     info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
+                    // Add remote address to Kademlia
+                    swarm.behaviour_mut().kademlia.add_address(&peer_id, endpoint.get_remote_address().clone());
                 },
                 SwarmEvent::ConnectionClosed { peer_id, .. } => {
                     info!("Connection closed with {}", peer_id);
