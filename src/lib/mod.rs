@@ -657,6 +657,7 @@ pub struct SyncNodeUtc {
 
 impl SyncNodeUtc {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_offset_sec: i64) -> Self {
+        debug!("Creating SyncNodeUtc id: {}, n: {}, f: {}, way_off: {}, initial_offset_sec: {}", id, n, f, way_off, initial_offset_sec);
         Self {
             id,
             n,
