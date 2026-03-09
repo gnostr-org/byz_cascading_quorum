@@ -328,6 +328,7 @@ pub async fn evt_loop(
 
     // Helper function for text wrapping
     fn apply_text_wrapping(msg: &mut Msg, terminal_width: usize) {
+        trace!("apply_text_wrapping: Wrapping message content for kind: {:?}, terminal_width: {}", msg.kind, terminal_width);
         if msg.content.is_empty() {
             return;
         }
