@@ -1,6 +1,6 @@
 #![allow(deprecated)]
 
-use chrono::{DateTime, Duration, Timelike, Utc};
+use chrono::{DateTime, Duration, Utc, Timelike};
 use num_bigint::BigUint;
 use rand_0_8_5::{thread_rng as rng_legacy, Rng as RngLegacy};
 use rand_0_9_2::{thread_rng as rng_latest, Rng as RngLatest};
@@ -220,5 +220,54 @@ pub fn run_byz_cascading_quorum_v2() {
 
         round += 1;
         if round > 15000 { break; } // Increased limit to account for 3-bit difficulty time
+    }
+}
+
+pub fn run_byz_cascading_quorum() {
+    let mut nodes: Vec<SyncNode> = (0..10).map(|i| {
+        let offset = match i { 0..=2 => 10, 3..=5 => 5, _ => 2 };
+        SyncNode::new(i, offset)
+    }).collect();
+
+    let mut round = 1;
+    loop {
+        let current_times: Vec<DateTime<Utc>> = nodes.iter().map(|n| n.get_logical_utc()).collect();
+        let timestamps: Vec<i64> = current_times.iter().map(|t| t.timestamp()).collect();
+        let spread = (timestamps.iter().max().unwrap() - timestamps.iter().min().unwrap()).abs();
+        let all_same_minute = current_times.iter().all(|t| t.minute() == current_times[0].minute());
+        
+        let global_step_reached = nodes.iter().all(|n| n.success);
+
+        println!("
+--- [ROUND {:03}] Spread:{}s | MinSync:{} | Phase:{:?} ---", round, spread, all_same_minute, nodes[0].stage);
+
+        for i in 0..10 {
+            nodes[i].update_stage(spread, all_same_minute, global_step_reached);
+            match nodes[i].stage {
+                SyncStage::Hour | SyncStage::Minute | SyncStage::Second => {
+                    let d = get_median_diff(&timestamps, timestamps[i]);
+                    let step = if nodes[i].stage == SyncStage::Second { d.signum() } else { d / 2 };
+                    nodes[i].adjustment = nodes[i].adjustment + Duration::seconds(step);
+                },
+                SyncStage::NonceGrind1Bit => { if !nodes[i].success { nodes[i].grind_nonce("0"); } }
+                SyncStage::NonceGrind2Bit => { if !nodes[i].success { nodes[i].grind_nonce("00"); } }
+                SyncStage::Sha256Mining => { if !nodes[i].success { nodes[i].mine_sha256("00"); } }
+            };
+
+            let mark = if nodes[i].success { "SOLVED " } else { "WAITING" };
+            println!(
+                "N{:02}|S:{}|UTC:{}|Nonce:{:<6}|{}|HASH:{}", 
+                i, nodes[i].stage as u8, current_times[i].format("%H:%M:%S"), 
+                nodes[i].nonce, mark, nodes[i].last_hash
+            );
+        }
+
+        if nodes.iter().all(|n| n.stage == SyncStage::Sha256Mining && n.success) {
+            println!("
+>>> SUCCESS: ALL NODES ATTAINED SHA-256 2-BIT FINALITY <<<");
+            break;
+        }
+        round += 1;
+        if round > 10000 { break; }
     }
 }
