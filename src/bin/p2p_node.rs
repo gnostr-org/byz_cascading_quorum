@@ -11,5 +11,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Dummy topic for compilation
     let topic = IdentTopic::new("dummy-topic");
 
-    evt_loop(send_rx, recv_tx, topic).await.map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+    evt_loop(send_rx, recv_tx, topic).await.map_err(anyhow::Error::into)
 }
