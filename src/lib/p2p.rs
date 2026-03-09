@@ -416,6 +416,10 @@ pub async fn evt_loop(
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     debug!("evt_loop: Mdns discovered list event.");
+                }
+                _ = time_sync_interval.tick() => {
+                    // Periodic time synchronization trigger
+                    debug!("TimeSync: Interval tick, initiating time sync step.");
                     for (peer_id, _multiaddr) in list {
                         debug!("mDNS discovered a new peer: {peer_id}");
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
