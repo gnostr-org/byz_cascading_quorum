@@ -486,6 +486,7 @@ impl SyncNodeTime {
     }
 
     pub fn get_local_time(&self) -> f64 {
+        trace!("NodeTime {} local time: {}", self.id, self.adj_p);
         self.adj_p
     }
 
