@@ -624,7 +624,7 @@ pub fn run_byz_time() {
         }
 
         // Phase 3: Check for final sync of all newcomers
-        let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
+        let all_synced = net.nodes.iter().all(|n| n.state == "🟢");
         if turnover_complete && all_synced && spread < 1.0 {
             println!(
                 "
@@ -703,7 +703,7 @@ impl SyncNodeUtc {
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adj_sec = if m > -self.way_off && m_large < self.way_off {
-            self.state = String::from("Synced");
+            self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
             self.state = String::from("RECOVERING");
@@ -810,7 +810,7 @@ pub fn run_utc_consensus() {
             }
         }
 
-        let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
+        let all_synced = net.nodes.iter().all(|n| n.state == "🟢");
         if turnover_complete && all_synced && spread_sec < 1.0 {
             println!(
                 "
