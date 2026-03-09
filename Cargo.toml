@@ -29,8 +29,8 @@ name = "p2p_node"
 path = "src/bin/p2p_node.rs"
 
 [dependencies]
+anyhow = "1.0.86"
 chrono = "0.4.44"
-sha2 = "0.10.9"
 libp2p = { version = "0.54.1", features = [
   "async-std",
   "autonat",
@@ -52,21 +52,21 @@ libp2p = { version = "0.54.1", features = [
   "yamux",
   "websocket"
 ] }
-anyhow = "1.0.86"
-terminal_size = "0.3.0"
-textwrap = "0.16.0"
-ureq = "2.9.2"
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-parking_lot = "0.12.2"
-serde = { version = "1.0.198", features = ["derive"] }
+multistream-select = "0.13.0"
 ## libp2p-identity = "0.2.10"
 
 num-bigint = "0.4.6"
+parking_lot = "0.12.2"
 rand_0_8_5 = { package = "rand", version = "0.8.5" }
 rand_0_9_2 = { package = "rand", version = "0.9.2" }
+serde = { version = "1.0.198", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+terminal_size = "0.3.0"
+textwrap = "0.16.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
-multistream-select = "0.13.0"
-serde_json = "1.0.149"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+ureq = "2.9.2"
 
