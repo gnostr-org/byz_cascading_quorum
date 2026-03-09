@@ -13,7 +13,7 @@ use serde_json;
 use terminal_size::{Width, terminal_size};
 use textwrap::{self, Options};
 use tokio::{select, sync::Mutex};
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 
 // Placeholder for application-specific types
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
