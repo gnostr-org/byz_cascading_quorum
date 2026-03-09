@@ -569,6 +569,7 @@ impl NetworkTime {
 }
 
 pub fn run_byz_time() {
+    debug!("Starting Byz Time simulation.");
     let mut net = NetworkTime::new();
     let mut round = 1;
     let mut turnover_started = false;
