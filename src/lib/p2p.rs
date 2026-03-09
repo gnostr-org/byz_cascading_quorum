@@ -15,7 +15,7 @@ pub mod p2p {
     use std::time::Duration;
     use tokio::{io::{self, AsyncBufReadExt}, select};
     use tokio_stream::wrappers::LinesStream;
-    use libp2p_noise::Config as NoiseConfig;
+    use libp2p_noise::noise::Config as NoiseConfig;
     use libp2p::core::upgrade;
     use libp2p::core::transport::OrTransport;
     use libp2p::quic;
