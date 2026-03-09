@@ -84,9 +84,10 @@ pub struct FileRequest(String);
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct FileResponse(Vec<u8>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InternalEvent {
     ChatMessage(Msg),
+    Dial(Multiaddr),
     ShowErrorMsg(String),
     ShowInfoMsg(String),
 }
@@ -177,7 +178,6 @@ pub struct MyBehaviour {
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
     pub dcutr: libp2p::dcutr::Behaviour,
     pub relay: libp2p::relay::client::Behaviour,
-    pub autonat: libp2p::autonat::Behaviour,
 }
 
 #[derive(Debug)]
@@ -190,7 +190,6 @@ pub enum MyBehaviourEvent {
     RequestResponse(request_response::Event<FileRequest, FileResponse>),
     Dcutr(libp2p::dcutr::Event),
     Relay(libp2p::relay::client::Event),
-    Autonat(libp2p::autonat::Event),
 }
 
 impl From<gossipsub::Event> for MyBehaviourEvent {
@@ -241,16 +240,11 @@ impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
     }
 }
 
-impl From<libp2p::autonat::Event> for MyBehaviourEvent {
-    fn from(event: libp2p::autonat::Event) -> Self {
-        MyBehaviourEvent::Autonat(event)
-    }
-}
-
 pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
     topic: gossipsub::IdentTopic,
+    mut addr_sender: Option<tokio::sync::oneshot::Sender<Multiaddr>>,
 ) -> Result<()> {
     debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new());
@@ -312,7 +306,6 @@ pub async fn evt_loop(
                 ),
                 dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
                 relay: relay_client,
-                autonat: libp2p::autonat::Behaviour::new(local_peer_id, libp2p::autonat::Config::default()),
             })
         })?
         .with_swarm_config(|c: libp2p::swarm::Config| {
@@ -342,6 +335,7 @@ pub async fn evt_loop(
                     match command {
                         "DIAL" => {
                             if let Ok(addr) = arg.parse::<libp2p::Multiaddr>() {
+                                info!("Manual dial requested: {}", addr);
                                 if let Err(e) = swarm.dial(addr) {
                                     warn!("Failed to dial {}: {:?}", arg, e);
                                 }
@@ -350,7 +344,6 @@ pub async fn evt_loop(
                         "TIME" => {
                             info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
                             info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
-                            info!("Status: {}", local_node.state);
                             info!("Connected Peers: {}", connected_peers_count);
                             info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
                         },
@@ -369,7 +362,6 @@ pub async fn evt_loop(
             _ = time_sync_interval.tick() => {
                 debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
                 
-                // Always include local estimate (offset 0, uncertainty 0)
                 let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
                 estimates.push(EstimationUtc { d: 0.0, a: 0.0 });
                 
@@ -405,16 +397,31 @@ pub async fn evt_loop(
                 }
             }
             Some(event) = send.recv() => {
-                if let InternalEvent::ChatMessage(m) = event {
-                    debug!("evt_loop: Sending outgoing ChatMessage.");
-                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&m)?) {
-                        warn!("evt_loop: Publish error: {:?}", e);
-                    }
+                match event {
+                    InternalEvent::ChatMessage(m) => {
+                        debug!("evt_loop: Sending outgoing ChatMessage.");
+                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&m)?) {
+                            warn!("evt_loop: Publish error: {:?}", e);
+                        }
+                    },
+                    InternalEvent::Dial(addr) => {
+                        info!("Internal dial requested: {}", addr);
+                        if let Err(e) = swarm.dial(addr) {
+                            warn!("evt_loop: Internal dial error: {:?}", e);
+                        }
+                    },
+                    _ => {}
                 }
             }
             event = swarm.select_next_some() => match event {
                 SwarmEvent::NewListenAddr { address, .. } => {
                     info!("Local node is listening on {address}");
+                    // Report address if this is the first non-loopback address
+                    if !address.to_string().contains("127.0.0.1") {
+                        if let Some(sender) = addr_sender.take() {
+                            let _ = sender.send(address);
+                        }
+                    }
                 },
                 SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                     info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
