@@ -178,6 +178,7 @@ pub struct MyBehaviour {
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
     pub dcutr: libp2p::dcutr::Behaviour,
     pub relay: libp2p::relay::client::Behaviour,
+    pub autonat: libp2p::autonat::Behaviour,
 }
 
 #[derive(Debug)]
@@ -190,6 +191,7 @@ pub enum MyBehaviourEvent {
     RequestResponse(request_response::Event<FileRequest, FileResponse>),
     Dcutr(libp2p::dcutr::Event),
     Relay(libp2p::relay::client::Event),
+    Autonat(libp2p::autonat::Event),
 }
 
 impl From<gossipsub::Event> for MyBehaviourEvent {
@@ -240,6 +242,12 @@ impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
     }
 }
 
+impl From<libp2p::autonat::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::autonat::Event) -> Self {
+        MyBehaviourEvent::Autonat(event)
+    }
+}
+
 pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
@@ -265,7 +273,7 @@ pub async fn evt_loop(
         .build()
         .map_err(|msg| anyhow!(msg))?;
 
-    let (_relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
+    let (relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
 
     let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair.clone())
         .with_tokio()
@@ -306,6 +314,7 @@ pub async fn evt_loop(
                 ),
                 dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
                 relay: relay_client,
+                autonat: libp2p::autonat::Behaviour::new(local_peer_id, libp2p::autonat::Config::default()),
             })
         })?
         .with_swarm_config(|c: libp2p::swarm::Config| {
@@ -341,9 +350,16 @@ pub async fn evt_loop(
                                 }
                             }
                         },
+                        "BOOTSTRAP" => {
+                            info!("Kademlia: Manual bootstrap triggered.");
+                            if let Err(e) = swarm.behaviour_mut().kademlia.bootstrap() {
+                                warn!("Kademlia: Bootstrap error: {:?}", e);
+                            }
+                        },
                         "TIME" => {
                             info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
                             info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
+                            info!("Status: {}", local_node.state);
                             info!("Connected Peers: {}", connected_peers_count);
                             info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
                         },
@@ -416,7 +432,6 @@ pub async fn evt_loop(
             event = swarm.select_next_some() => match event {
                 SwarmEvent::NewListenAddr { address, .. } => {
                     info!("Local node is listening on {address}");
-                    // Report address if this is the first non-loopback address
                     if !address.to_string().contains("127.0.0.1") {
                         if let Some(sender) = addr_sender.take() {
                             let _ = sender.send(address);
@@ -441,6 +456,15 @@ pub async fn evt_loop(
                         debug!("mDNS peer expired: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Identify(identify::Event::Received { peer_id, info, .. })) => {
+                    debug!("Identify: Received info from {}: {:?}", peer_id, info);
+                    for addr in info.listen_addrs {
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                    }
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Autonat(libp2p::autonat::Event::StatusChanged { new, .. })) => {
+                    info!("Autonat: Status changed to: {:?}", new);
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
                     trace!("Received Gossipsub message from {} with id {}", peer_id, id);
