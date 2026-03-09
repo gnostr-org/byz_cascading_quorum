@@ -167,6 +167,7 @@ impl MessageReassembler {
 }
 
 #[derive(NetworkBehaviour)]
+#[behaviour(out_event = "MyBehaviourEvent")]
 pub struct MyBehaviour {
     pub gossipsub: gossipsub::Behaviour,
     pub mdns: mdns::tokio::Behaviour,
@@ -176,6 +177,74 @@ pub struct MyBehaviour {
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
     pub dcutr: libp2p::dcutr::Behaviour,
     pub relay: libp2p::relay::client::Behaviour,
+    pub autonat: libp2p::autonat::Behaviour,
+}
+
+#[derive(Debug)]
+pub enum MyBehaviourEvent {
+    Gossipsub(gossipsub::Event),
+    Mdns(mdns::Event),
+    Identify(identify::Event),
+    Kademlia(kad::Event),
+    Ping(ping::Event),
+    RequestResponse(request_response::Event<FileRequest, FileResponse>),
+    Dcutr(libp2p::dcutr::Event),
+    Relay(libp2p::relay::client::Event),
+    Autonat(libp2p::autonat::Event),
+}
+
+impl From<gossipsub::Event> for MyBehaviourEvent {
+    fn from(event: gossipsub::Event) -> Self {
+        MyBehaviourEvent::Gossipsub(event)
+    }
+}
+
+impl From<mdns::Event> for MyBehaviourEvent {
+    fn from(event: mdns::Event) -> Self {
+        MyBehaviourEvent::Mdns(event)
+    }
+}
+
+impl From<identify::Event> for MyBehaviourEvent {
+    fn from(event: identify::Event) -> Self {
+        MyBehaviourEvent::Identify(event)
+    }
+}
+
+impl From<kad::Event> for MyBehaviourEvent {
+    fn from(event: kad::Event) -> Self {
+        MyBehaviourEvent::Kademlia(event)
+    }
+}
+
+impl From<ping::Event> for MyBehaviourEvent {
+    fn from(event: ping::Event) -> Self {
+        MyBehaviourEvent::Ping(event)
+    }
+}
+
+impl From<request_response::Event<FileRequest, FileResponse>> for MyBehaviourEvent {
+    fn from(event: request_response::Event<FileRequest, FileResponse>) -> Self {
+        MyBehaviourEvent::RequestResponse(event)
+    }
+}
+
+impl From<libp2p::dcutr::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::dcutr::Event) -> Self {
+        MyBehaviourEvent::Dcutr(event)
+    }
+}
+
+impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::relay::client::Event) -> Self {
+        MyBehaviourEvent::Relay(event)
+    }
+}
+
+impl From<libp2p::autonat::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::autonat::Event) -> Self {
+        MyBehaviourEvent::Autonat(event)
+    }
 }
 
 pub async fn evt_loop(
@@ -243,6 +312,7 @@ pub async fn evt_loop(
                 ),
                 dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
                 relay: relay_client,
+                autonat: libp2p::autonat::Behaviour::new(local_peer_id, libp2p::autonat::Config::default()),
             })
         })?
         .with_swarm_config(|c: libp2p::swarm::Config| {
@@ -280,6 +350,7 @@ pub async fn evt_loop(
                         "TIME" => {
                             info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
                             info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
+                            info!("Status: {}", local_node.state);
                             info!("Connected Peers: {}", connected_peers_count);
                             info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
                         },
@@ -297,11 +368,23 @@ pub async fn evt_loop(
             }
             _ = time_sync_interval.tick() => {
                 debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
-                if !peer_estimates.is_empty() {
-                    let estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
+                
+                // Always include local estimate (offset 0, uncertainty 0)
+                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
+                estimates.push(EstimationUtc { d: 0.0, a: 0.0 });
+                
+                if estimates.len() >= local_node.n - local_node.f {
                     local_node.run_sync_cycle(estimates);
-                    info!("TimeSync: Local adjustment updated to: {}ms", local_node.adjustment.num_milliseconds());
+                    info!("TimeSync: Local adjustment updated to: {}ms (State: {})", 
+                        local_node.adjustment.num_milliseconds(),
+                        local_node.state
+                    );
                     peer_estimates.clear();
+                } else {
+                    debug!("TimeSync: Not enough estimates yet ({}/{} required)", 
+                        estimates.len(), 
+                        local_node.n - local_node.f
+                    );
                 }
 
                 if connected_peers_count > 0 {
@@ -341,14 +424,14 @@ pub async fn evt_loop(
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, multiaddr) in list {
-                        debug!("evt_loop: mDNS discovered peer: {}", peer_id);
+                        debug!("mDNS discovered peer: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                         swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        debug!("evt_loop: mDNS peer expired: {}", peer_id);
+                        debug!("mDNS peer expired: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
                 },
