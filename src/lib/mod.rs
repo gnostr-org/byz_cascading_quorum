@@ -531,6 +531,7 @@ impl NetworkTime {
     }
 
     pub fn simulate_step(&mut self) -> f64 {
+        debug!("Simulating network time step.");
         let current_n = self.nodes.len();
         let mut all_estimates = Vec::new();
 
@@ -711,6 +712,7 @@ impl NetworkUtc {
     }
 
     pub fn simulate_step(&mut self) -> f64 {
+        debug!("Simulating network time step.");
         let current_n = self.nodes.len();
         let mut all_estimates = Vec::new();
 
