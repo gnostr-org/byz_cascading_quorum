@@ -68,7 +68,7 @@ async fn test_p2p_time_consensus() {
         let initial_offset = 60; // Huge 1-minute offset
         
         info!("Starting Late Joiner Node 3 with initial offset {}s using bootstrap {}", initial_offset, bootstrap_addr);
-        if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, None, initial_offset, vec![bootstrap_addr]).await {
+        if let Err(e) = evt_loop(send_rx, recv_tx, topic_clone, None, initial_offset, vec![bootstrap_addr], 6).await {
             eprintln!("Late Joiner Node 3 error: {:?}", e);
         }
     });
