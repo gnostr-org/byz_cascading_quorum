@@ -251,13 +251,13 @@ fn print_quorum_status(
     println!("\n====================================================================================================");
     println!("[QUORUM CONSENSUS REPORT] - {}", now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
     println!("====================================================================================================");
-    println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}", "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS");
+    println!("{:<18} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}", "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS");
     println!("{:-<100}", "");
 
     // Print Local Node (Self)
     let local_addr_str = local_addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
     let local_peer_id_str = local_peer_id.to_string();
-    let short_id = format!("{:.6}...{:.6}", &local_peer_id_str[..6], &local_peer_id_str[local_peer_id_str.len()-6..]);
+    let short_id = format!("{:.9}/{:.8}", &local_peer_id_str[..9], &local_peer_id_str[local_peer_id_str.len()-8..]);
 
     println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
         format!("{}", short_id),
@@ -272,7 +272,7 @@ fn print_quorum_status(
     for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
         let addr_str = addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
         let peer_id_str = peer_id.to_string();
-        let short_peer_id = format!("{:.6}...{:.6}", &peer_id_str[..6], &peer_id_str[peer_id_str.len()-6..]);
+        let short_peer_id = format!("{:.9}/{:.8}", &peer_id_str[..9], &peer_id_str[peer_id_str.len()-8..]);
 
         println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
             short_peer_id,
@@ -491,7 +491,7 @@ pub async fn evt_loop(
                     }
                 },
                 SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
-                    info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
+                    debug!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
                     // Proactively add remote address to Kademlia and trigger bootstrap
                     swarm.behaviour_mut().kademlia.add_address(&peer_id, endpoint.get_remote_address().clone());
                     if let Err(e) = swarm.behaviour_mut().kademlia.bootstrap() {
@@ -499,7 +499,7 @@ pub async fn evt_loop(
                     }
                 },
                 SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                    info!("Connection closed with {}", peer_id);
+                    debug!("Connection closed with {}", peer_id);
                     peer_reports.remove(&peer_id.to_string());
                     peer_estimates.remove(&peer_id.to_string());
                 },
