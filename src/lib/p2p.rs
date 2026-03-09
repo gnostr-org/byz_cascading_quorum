@@ -10,6 +10,7 @@ pub mod p2p {
         mdns,
         swarm::{NetworkBehaviour, SwarmEvent},
         PeerId,
+        StreamProtocol,
         Transport,
     };
     use std::time::Duration;
@@ -102,7 +103,7 @@ pub mod p2p {
             gossipsub_config,
         )?;
 
-        let mut kademlia_config = kad::Config::new();
+        let mut kademlia_config = kad::Config::new(StreamProtocol::new("/kad/1.0.0"));
         kademlia_config.set_query_timeout(Duration::from_secs(5 * 60));
         let mut kademlia = kad::Behaviour::with_config(
             local_peer_id,
