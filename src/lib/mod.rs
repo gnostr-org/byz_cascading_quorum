@@ -456,6 +456,7 @@ pub struct EstimationTime {
 }
 
 pub fn estimate_offset_time(s: f64, r: f64, c: f64) -> EstimationTime {
+    trace!("Estimating offset time for s: {}, r: {}, c: {}", s, r, c);
     EstimationTime {
         d: c - (r + s) / 2.0,
         a: (r - s) / 2.0,
