@@ -5,9 +5,13 @@ use num_bigint::BigUint;
 use rand_0_8_5::{Rng as RngLegacy, thread_rng as rng_legacy};
 use rand_0_9_2::{Rng as RngLatest, rng as rng_latest};
 use sha2::{Digest, Sha256};
+use tracing::{debug, trace};
+
+pub use crate::p2p::evt_loop;
 
 // --- GIT-COMPLIANT SHA-1 ENGINE ---
 pub fn git_sha1(data: &[u8]) -> String {
+    debug!("Starting git_sha1 for data length: {}", data.len());
     let mut h0: u32 = 0x67452301;
     let mut h1: u32 = 0xEFCDAB89;
     let mut h2: u32 = 0x98BADCFE;
@@ -85,6 +89,7 @@ pub struct SyncNode {
 
 impl SyncNode {
     pub fn new(id: usize, offset_sec: i64) -> Self {
+        debug!("Creating SyncNode with id: {} and offset: {}s", id, offset_sec);
         Self {
             id,
             adjustment: Duration::seconds(offset_sec),
@@ -98,7 +103,9 @@ impl SyncNode {
     }
 
     pub fn get_logical_utc(&self) -> DateTime<Utc> {
-        Utc::now() + self.adjustment
+        let logical_utc = Utc::now() + self.adjustment;
+        trace!("Node {} logical UTC: {}", self.id, logical_utc);
+        logical_utc
     }
 
     pub fn update_stage(
@@ -107,6 +114,14 @@ impl SyncNode {
         all_same_minute: bool,
         global_success_reached: bool,
     ) {
+        debug!(
+            "Node {} updating stage. Current: {:?}, Spread: {}, SameMinute: {}, GlobalSuccess: {}",
+            self.id,
+            self.stage,
+            spread,
+            all_same_minute,
+            global_success_reached
+        );
         match self.stage {
             SyncStage::Hour => {
                 if spread < 3600 {
@@ -155,6 +170,7 @@ impl SyncNode {
     }
 
     pub fn grind_nonce(&mut self, target: &str) {
+        debug!("Node {} starting nonce grind for target: {}", self.id, target);
         let time = self.get_logical_utc();
         let minute = time.minute();
         if self.nonce == 0 {
@@ -187,6 +203,7 @@ impl SyncNode {
     }
 
     pub fn mine_sha256(&mut self, target: &str) {
+        debug!("Node {} starting SHA-256 mining for target: {}", self.id, target);
         let mut bytes = [0u8; 64];
         self.rng_v9.fill(&mut bytes);
         let candidate = BigUint::from_bytes_be(&bytes);
@@ -211,6 +228,7 @@ impl SyncNode {
 }
 
 pub fn get_median_diff(timestamps: &[i64], current: i64) -> i64 {
+    trace!("Calculating median diff for current: {}", current);
     let mut diffs: Vec<i64> = timestamps.iter().map(|t| t - current).collect();
     diffs.sort();
     diffs[diffs.len() / 2]
@@ -231,6 +249,7 @@ ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
 }
 
 pub fn run_byz_cascading_quorum_v2() {
+    debug!("Starting Byz Cascading Quorum V2 simulation.");
     let mut nodes: Vec<SyncNode> = (0..5).map(|i| SyncNode::new(i, i as i64 * 2)).collect();
     let mut round = 1;
     let mut entrants_joined = false;
@@ -339,6 +358,7 @@ pub fn run_byz_cascading_quorum_v2() {
 }
 
 pub fn run_byz_cascading_quorum() {
+    debug!("Starting Byz Cascading Quorum simulation.");
     let mut nodes: Vec<SyncNode> = (0..10)
         .map(|i| {
             let offset = match i {
@@ -640,7 +660,9 @@ impl SyncNodeUtc {
     }
 
     pub fn get_logical_utc(&self) -> DateTime<Utc> {
-        Utc::now() + self.adjustment
+        let logical_utc = Utc::now() + self.adjustment;
+        trace!("Node {} logical UTC: {}", self.id, logical_utc);
+        logical_utc
     }
 
     pub fn run_sync_cycle(&mut self, estimates: Vec<EstimationUtc>) {
