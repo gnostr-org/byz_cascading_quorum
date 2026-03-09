@@ -269,7 +269,7 @@ fn print_quorum_status(
         "{:<18} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
         "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS"
     );
-    println!("{:-<100}", "");
+    println!("{:-<103}", "");
 
     // Print Local Node (Self)
     let local_addr_str = local_addrs
@@ -328,7 +328,7 @@ fn print_quorum_status(
             );
         };
     }
-    println!("{:-<100}\n", "");
+    println!("{:-<103}\n", "");
 }
 pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
