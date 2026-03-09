@@ -10,6 +10,8 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use tokio::sync::Mutex;
+use terminal_size::{Width, terminal_size};
+use textwrap::{self, Options};
 use tokio::select;
 use tokio_stream::wrappers::LinesStream;
 use tokio::io::{self, AsyncBufReadExt};
@@ -73,7 +75,7 @@ impl Default for MsgKind {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TimeSyncMessage {
     pub peer_id: String,
-    pub timestamp: DateTime<Utc>,
+    pub system_time: DateTime<Utc>,
     pub adjustment_ms: i64,
     pub listen_addrs: Vec<Multiaddr>,
 }
@@ -243,16 +245,18 @@ fn print_quorum_status(
     local_peer_id: &PeerId, 
     local_node: &SyncNodeUtc, 
     local_addrs: &[Multiaddr],
-    peer_reports: &HashMap<String, (DateTime<Utc>, i64, String, Vec<Multiaddr>)>
+    peer_reports: &HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)>
 ) {
     println!("\n--- [QUORUM CONSENSUS REPORT] ---");
-    println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", "PEER ID", "LOGICAL UTC", "OFFSET", "STATE", "MULTIADDRESS");
-    println!("{:-<75}", "");
+    println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS");
+    println!("{:-<95}", "");
     
     // Print Local Node
+    let now = Utc::now();
     let local_addr_str = local_addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
-    println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
+    println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
         &local_peer_id.to_string()[..8], 
+        now.format("%H:%M:%S"),
         local_node.get_logical_utc().format("%H:%M:%S"),
         format!("{}ms", local_node.adjustment.num_milliseconds()),
         local_node.state,
@@ -260,17 +264,18 @@ fn print_quorum_status(
     );
 
     // Print Peers
-    for (peer_id, (time, adj, state, addrs)) in peer_reports {
+    for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
         let addr_str = addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
-        println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
+        println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
             &peer_id[..8], 
-            time.format("%H:%M:%S"),
+            system_time.format("%H:%M:%S"),
+            logical_time.format("%H:%M:%S"),
             format!("{}ms", adj),
             state,
             addr_str
         );
     }
-    println!("{:-<75}\n", "");
+    println!("{:-<95}\n", "");
 }
 
 pub async fn evt_loop(
@@ -286,7 +291,7 @@ pub async fn evt_loop(
     // Time Consensus State
     let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, initial_offset_sec); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
-    let mut peer_reports: HashMap<String, (DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
+    let mut peer_reports: HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
     let mut local_listen_addrs: Vec<Multiaddr> = Vec::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
 
@@ -406,9 +411,8 @@ pub async fn evt_loop(
                 
                 if estimates.len() >= local_node.n - local_node.f {
                     local_node.run_sync_cycle(estimates);
-                    info!("TimeSync: Node {} (address: {:?}) updated adjustment to: {}ms (State: {})", 
+                    info!("TimeSync: Node {} updated adjustment to: {}ms (State: {})", 
                         local_peer_id,
-                        local_listen_addrs.first(),
                         local_node.adjustment.num_milliseconds(),
                         local_node.state
                     );
@@ -419,7 +423,7 @@ pub async fn evt_loop(
                 if connected_peers_count > 0 {
                     let sync_msg = TimeSyncMessage {
                         peer_id: local_peer_id.to_string(),
-                        timestamp: Utc::now(),
+                        system_time: Utc::now(),
                         adjustment_ms: local_node.adjustment.num_milliseconds(),
                         listen_addrs: local_listen_addrs.clone(),
                     };
@@ -497,13 +501,13 @@ pub async fn evt_loop(
                                     let peer_state = msg.content.get(1).cloned().unwrap_or_else(|| "Unknown".to_string());
                                     debug!("TimeSync: Received from peer {}: {:?} (State: {})", peer_id, sync_msg, peer_state);
                                     
-                                    let s = sync_msg.timestamp;
+                                    let s = sync_msg.system_time;
                                     let r = Utc::now();
-                                    let c = sync_msg.timestamp + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
+                                    let c = sync_msg.system_time + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
                                     let estimate = estimate_offset_utc(s, r, c);
                                     
                                     peer_estimates.insert(sync_msg.peer_id.clone(), estimate);
-                                    peer_reports.insert(sync_msg.peer_id.clone(), (c, sync_msg.adjustment_ms, peer_state, sync_msg.listen_addrs));
+                                    peer_reports.insert(sync_msg.peer_id.clone(), (sync_msg.system_time, c, sync_msg.adjustment_ms, peer_state, sync_msg.listen_addrs));
                                 }
                             } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
                                 if let Some(reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {
