@@ -15,7 +15,7 @@ pub mod p2p {
     use std::time::Duration;
     use tokio::{io::{self, AsyncBufReadExt}, select};
     use tokio_stream::wrappers::LinesStream;
-    use libp2p_noise::noise::Config as NoiseConfig;
+    use libp2p_noise::Config as NoiseConfig;
     use libp2p::core::upgrade;
     use libp2p::core::transport::OrTransport;
     use libp2p::tcp;
@@ -102,7 +102,7 @@ pub mod p2p {
             gossipsub_config,
         )?;
 
-        let mut kademlia_config = kad::Config::default();
+        let mut kademlia_config = kad::Config::new();
         kademlia_config.set_query_timeout(Duration::from_secs(5 * 60));
         let mut kademlia = kad::Behaviour::with_config(
             local_peer_id,
