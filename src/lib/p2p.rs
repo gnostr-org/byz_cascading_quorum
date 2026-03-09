@@ -7,6 +7,7 @@ use libp2p::{
     request_response::{self, ProtocolSupport},
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, identity,
+    Multiaddr, PeerId,
 };
 use tokio::sync::Mutex;
 use terminal_size::{Width, terminal_size};
@@ -14,7 +15,7 @@ use textwrap::{self, Options};
 use tokio::select;
 use tokio_stream::wrappers::LinesStream;
 use tokio::io::{self, AsyncBufReadExt};
-use tracing::{debug, trace, warn};
+use tracing::{debug, trace, warn, info};
 use serde_json;
 use chrono::{DateTime, Utc};
 
@@ -173,6 +174,8 @@ pub struct MyBehaviour {
     pub kademlia: kad::Behaviour<kad::store::MemoryStore>,
     pub ping: ping::Behaviour,
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
+    pub dcutr: libp2p::dcutr::Behaviour,
+    pub relay: libp2p::relay::client::Behaviour,
 }
 
 pub async fn evt_loop(
@@ -184,7 +187,6 @@ pub async fn evt_loop(
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
-    // Initializing with n=1, f=0, will adjust dynamically
     let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, 0); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
@@ -199,6 +201,8 @@ pub async fn evt_loop(
         .validation_mode(gossipsub::ValidationMode::Strict)
         .build()
         .map_err(|msg| anyhow!(msg))?;
+
+    let (_relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
 
     let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair.clone())
         .with_tokio()
@@ -237,6 +241,8 @@ pub async fn evt_loop(
                     )],
                     request_response::Config::default(),
                 ),
+                dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
+                relay: relay_client,
             })
         })?
         .with_swarm_config(|c: libp2p::swarm::Config| {
@@ -252,10 +258,9 @@ pub async fn evt_loop(
     let mut stdin = LinesStream::new(io::BufReader::new(io::stdin()).lines());
 
     loop {
-        // Dynamically adjust Byzantine parameters
         let connected_peers_count = swarm.connected_peers().count();
-        local_node.n = connected_peers_count + 1; // Peers + local node
-        local_node.f = connected_peers_count / 3; // Standard 3f+1 tolerance
+        local_node.n = connected_peers_count + 1;
+        local_node.f = connected_peers_count / 3;
 
         select! {
             line = stdin.next() => {
@@ -273,10 +278,10 @@ pub async fn evt_loop(
                             }
                         },
                         "TIME" => {
-                            println!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
-                            println!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
-                            println!("Connected Peers: {}", connected_peers_count);
-                            println!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
+                            info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
+                            info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
+                            info!("Connected Peers: {}", connected_peers_count);
+                            info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
                         },
                         "PUB" => {
                             let mut msg = Msg::default();
@@ -295,11 +300,10 @@ pub async fn evt_loop(
                 if !peer_estimates.is_empty() {
                     let estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
                     local_node.run_sync_cycle(estimates);
-                    debug!("TimeSync: Local adjustment updated to: {}ms", local_node.adjustment.num_milliseconds());
+                    info!("TimeSync: Local adjustment updated to: {}ms", local_node.adjustment.num_milliseconds());
                     peer_estimates.clear();
                 }
 
-                // Broadcast local time if we have peers
                 if connected_peers_count > 0 {
                     let sync_msg = TimeSyncMessage {
                         peer_id: local_peer_id.to_string(),
@@ -326,10 +330,20 @@ pub async fn evt_loop(
                 }
             }
             event = swarm.select_next_some() => match event {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    info!("Local node is listening on {address}");
+                },
+                SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                    info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
+                },
+                SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                    info!("Connection closed with {}", peer_id);
+                },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                    for (peer_id, _multiaddr) in list {
+                    for (peer_id, multiaddr) in list {
                         debug!("evt_loop: mDNS discovered peer: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
@@ -339,7 +353,7 @@ pub async fn evt_loop(
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
-                    trace!("evt_loop: Received Gossipsub message from {} with id {}", peer_id, id);
+                    trace!("Received Gossipsub message from {} with id {}", peer_id, id);
                     match serde_json::from_slice::<Msg>(&message.data) {
                         Ok(msg) => {
                             if msg.kind == MsgKind::TimeSync {
@@ -363,9 +377,6 @@ pub async fn evt_loop(
                         Err(e) => warn!("evt_loop: Error deserializing message: {:?}", e),
                     }
                 },
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    debug!("evt_loop: Local node is listening on {address}");
-                }
                 _ => {}
             }
         }
