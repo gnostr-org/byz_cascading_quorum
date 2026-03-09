@@ -27,3 +27,7 @@ path = "src/bin/byz_time.rs"
 [[bin]]
 name = "utc_consensus"
 path = "src/bin/utc_consensus.rs"
+
+[lib]
+name = "byz_cascading_quorum"
+path = "src/lib/mod.rs"
