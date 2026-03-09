@@ -306,22 +306,22 @@ fn print_quorum_status(
 
         if adj.clone() >= 0 {
             println!(
-                "{:<12} | {:<12} | {:<12} |  {:<9} | {:<12} | {:<20}",
+                "{:<12} | {:<12} | {:<12} |  {:<9} | {:<4} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
                 format!("{}ms", adj), // DRIFT
-                state,
+                state, // STATE 
                 addr_str
             );
         } else {
             println!(
-                "{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
+                "{:<12} | {:<12} | {:<12} | {:<10} | {:<3}   | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
                 format!("{}ms", adj), // DRIFT
-                state,
+                state, // STATE
                 addr_str
             );
         };

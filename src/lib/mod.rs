@@ -682,7 +682,7 @@ impl SyncNodeUtc {
             f,
             way_off,
             adjustment: Duration::seconds(initial_offset_sec),
-            state: String::from("⏲"),
+            state: String::from("⚪️"),
         }
     }
 
