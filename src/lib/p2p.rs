@@ -431,7 +431,7 @@ pub async fn evt_loop(
                 
                 if estimates.len() >= local_node.n - local_node.f {
                     local_node.run_sync_cycle(estimates);
-                    info!("TimeSync: Node {} updated adjustment to: {}ms (State: {})", 
+                    debug!("TimeSync: Node {} updated adjustment to: {}ms (State: {})", 
                         local_peer_id,
                         local_node.adjustment.num_milliseconds(),
                         local_node.state
