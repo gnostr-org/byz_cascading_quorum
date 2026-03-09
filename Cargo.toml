@@ -30,7 +30,7 @@ path = "src/bin/p2p_node.rs"
 
 [dependencies]
 anyhow = "1.0.86"
-chrono = "0.4.44"
+chrono = { version = "0.4.44", features = ["serde"] }
 libp2p = { version = "0.54.1", features = [
   "async-std",
   "autonat",
