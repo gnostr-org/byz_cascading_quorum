@@ -6,6 +6,9 @@ default-run = "byz_cascading_quorum"
 
 [dependencies]
 chrono = "0.4.44"
+num-bigint = "0.4.6"
+rand_0_8_5 = { package = "rand", version = "0.8.5" }
+rand_0_9_2 = { package = "rand", version = "0.9.2" }
 sha2 = "0.10.9"
 
 [[bin]]
