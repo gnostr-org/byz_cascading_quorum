@@ -11,8 +11,6 @@ use libp2p::{
     tcp, yamux,
 };
 use serde_json;
-use terminal_size::{Width, terminal_size};
-use textwrap::{self, Options};
 use tokio::{
     io::{self, AsyncBufReadExt},
     select,
@@ -308,7 +306,7 @@ fn print_quorum_status(
 
         if adj.clone() >= 0 {
             println!(
-                "{:<12} | {:<12} | {:<12} | +{:<9} | {:<12} | {:<20}",
+                "{:<12} | {:<12} | {:<12} |  {:<9} | {:<12} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),

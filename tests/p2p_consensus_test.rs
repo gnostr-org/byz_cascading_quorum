@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use byz_time::p2p::{InternalEvent, evt_loop};
 use libp2p::gossipsub::IdentTopic;
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]

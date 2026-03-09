@@ -2,7 +2,7 @@ use anyhow::Result;
 use byz_time::p2p::evt_loop;
 use clap::Parser;
 use libp2p::{Multiaddr, gossipsub::IdentTopic};
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
