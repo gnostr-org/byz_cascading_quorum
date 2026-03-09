@@ -178,7 +178,6 @@ pub struct MyBehaviour {
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
     pub dcutr: libp2p::dcutr::Behaviour,
     pub relay: libp2p::relay::client::Behaviour,
-    pub autonat: libp2p::autonat::Behaviour,
 }
 
 #[derive(Debug)]
@@ -191,7 +190,6 @@ pub enum MyBehaviourEvent {
     RequestResponse(request_response::Event<FileRequest, FileResponse>),
     Dcutr(libp2p::dcutr::Event),
     Relay(libp2p::relay::client::Event),
-    Autonat(libp2p::autonat::Event),
 }
 
 impl From<gossipsub::Event> for MyBehaviourEvent {
@@ -242,10 +240,33 @@ impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
     }
 }
 
-impl From<libp2p::autonat::Event> for MyBehaviourEvent {
-    fn from(event: libp2p::autonat::Event) -> Self {
-        MyBehaviourEvent::Autonat(event)
+fn print_quorum_status(
+    local_peer_id: &PeerId, 
+    local_node: &SyncNodeUtc, 
+    peer_reports: &HashMap<String, (DateTime<Utc>, i64, String)>
+) {
+    println!("\n--- [QUORUM CONSENSUS REPORT] ---");
+    println!("{:<12} | {:<12} | {:<10} | {:<10}", "PEER ID", "LOGICAL UTC", "OFFSET", "STATE");
+    println!("{:-<50}", "");
+    
+    // Print Local Node
+    println!("{:<12} | {:<12} | {:<10} | {:<10}", 
+        &local_peer_id.to_string()[..8], 
+        local_node.get_logical_utc().format("%H:%M:%S"),
+        format!("{}ms", local_node.adjustment.num_milliseconds()),
+        local_node.state
+    );
+
+    // Print Peers
+    for (peer_id, (time, adj, state)) in peer_reports {
+        println!("{:<12} | {:<12} | {:<10} | {:<10}", 
+            &peer_id[..8], 
+            time.format("%H:%M:%S"),
+            format!("{}ms", adj),
+            state
+        );
     }
+    println!("{:-<50}\n", "");
 }
 
 pub async fn evt_loop(
@@ -253,13 +274,15 @@ pub async fn evt_loop(
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
     topic: gossipsub::IdentTopic,
     mut addr_sender: Option<tokio::sync::oneshot::Sender<Multiaddr>>,
+    initial_offset_sec: i64,
 ) -> Result<()> {
     debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
-    let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, 0); 
+    let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, initial_offset_sec); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
+    let mut peer_reports: HashMap<String, (DateTime<Utc>, i64, String)> = HashMap::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
 
     let keypair = identity::Keypair::generate_ed25519();
@@ -273,7 +296,7 @@ pub async fn evt_loop(
         .build()
         .map_err(|msg| anyhow!(msg))?;
 
-    let (relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
+    let (_relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
 
     let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair.clone())
         .with_tokio()
@@ -314,7 +337,6 @@ pub async fn evt_loop(
                 ),
                 dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
                 relay: relay_client,
-                autonat: libp2p::autonat::Behaviour::new(local_peer_id, libp2p::autonat::Config::default()),
             })
         })?
         .with_swarm_config(|c: libp2p::swarm::Config| {
@@ -357,11 +379,7 @@ pub async fn evt_loop(
                             }
                         },
                         "TIME" => {
-                            info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
-                            info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
-                            info!("Status: {}", local_node.state);
-                            info!("Connected Peers: {}", connected_peers_count);
-                            info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
+                            print_quorum_status(&local_peer_id, &local_node, &peer_reports);
                         },
                         "PUB" => {
                             let mut msg = Msg::default();
@@ -387,12 +405,8 @@ pub async fn evt_loop(
                         local_node.adjustment.num_milliseconds(),
                         local_node.state
                     );
+                    print_quorum_status(&local_peer_id, &local_node, &peer_reports);
                     peer_estimates.clear();
-                } else {
-                    debug!("TimeSync: Not enough estimates yet ({}/{} required)", 
-                        estimates.len(), 
-                        local_node.n - local_node.f
-                    );
                 }
 
                 if connected_peers_count > 0 {
@@ -405,7 +419,8 @@ pub async fn evt_loop(
                     trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
                     let mut msg = Msg::default();
                     msg.kind = MsgKind::TimeSync;
-                    msg.content = vec![serde_json::to_string(&sync_msg)?];
+                    // Add state to content so peers know each other's status
+                    msg.content = vec![serde_json::to_string(&sync_msg)?, local_node.state.clone()];
                     
                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
                         warn!("TimeSync: Failed to publish time sync message: {:?}", e);
@@ -443,6 +458,8 @@ pub async fn evt_loop(
                 },
                 SwarmEvent::ConnectionClosed { peer_id, .. } => {
                     info!("Connection closed with {}", peer_id);
+                    peer_reports.remove(&peer_id.to_string());
+                    peer_estimates.remove(&peer_id.to_string());
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, multiaddr) in list {
@@ -463,22 +480,22 @@ pub async fn evt_loop(
                         swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
                     }
                 },
-                SwarmEvent::Behaviour(MyBehaviourEvent::Autonat(libp2p::autonat::Event::StatusChanged { new, .. })) => {
-                    info!("Autonat: Status changed to: {:?}", new);
-                },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
                     trace!("Received Gossipsub message from {} with id {}", peer_id, id);
                     match serde_json::from_slice::<Msg>(&message.data) {
                         Ok(msg) => {
                             if msg.kind == MsgKind::TimeSync {
                                 if let Ok(sync_msg) = serde_json::from_str::<TimeSyncMessage>(&msg.content[0]) {
-                                    debug!("TimeSync: Received from peer {}: {:?}", peer_id, sync_msg);
+                                    let peer_state = msg.content.get(1).cloned().unwrap_or_else(|| "Unknown".to_string());
+                                    debug!("TimeSync: Received from peer {}: {:?} (State: {})", peer_id, sync_msg, peer_state);
+                                    
                                     let s = sync_msg.timestamp;
                                     let r = Utc::now();
                                     let c = sync_msg.timestamp + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
                                     let estimate = estimate_offset_utc(s, r, c);
-                                    trace!("TimeSync: Calculated estimate for peer {}: {:?}", peer_id, estimate);
-                                    peer_estimates.insert(sync_msg.peer_id, estimate);
+                                    
+                                    peer_estimates.insert(sync_msg.peer_id.clone(), estimate);
+                                    peer_reports.insert(sync_msg.peer_id.clone(), (c, sync_msg.adjustment_ms, peer_state));
                                 }
                             } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
                                 if let Some(reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {

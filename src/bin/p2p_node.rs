@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = IdentTopic::new("dummy-topic");
 
     // Pass None for addr_sender as this is a standalone node
-    evt_loop(send_rx, recv_tx, topic, None)
+    evt_loop(send_rx, recv_tx, topic, None, 0)
         .await
         .map_err(anyhow::Error::into)
 }
