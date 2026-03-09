@@ -635,6 +635,7 @@ pub struct EstimationUtc {
 }
 
 pub fn estimate_offset_utc(s: DateTime<Utc>, r: DateTime<Utc>, c: DateTime<Utc>) -> EstimationUtc {
+    trace!("Estimating UTC offset for s: {:?}, r: {:?}, c: {:?}", s, r, c);
     // d = c - (r + s) / 2
     let send_receive_avg_ms = (r.timestamp_millis() + s.timestamp_millis()) / 2;
     let diff_ms = c.timestamp_millis() - send_receive_avg_ms;
