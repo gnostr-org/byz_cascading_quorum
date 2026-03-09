@@ -120,7 +120,7 @@ pub mod p2p {
 
         let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
             .with_tokio()
-            .with_transport(transport)?
+            .with_other_transport(|_| transport)?
             .with_behaviour(MyBehaviour { gossipsub, kademlia, mdns, identify, autonat })?
             .build();
 
