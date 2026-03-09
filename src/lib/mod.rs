@@ -1,26 +1,38 @@
 pub mod p2p;
-#![allow(deprecated)]
-
-use chrono::{DateTime, Duration, Utc, Timelike};
+#[allow(deprecated)]
+use chrono::{DateTime, Duration, Timelike, Utc};
 use num_bigint::BigUint;
-use rand_0_8_5::{thread_rng as rng_legacy, Rng as RngLegacy};
-use rand_0_9_2::{thread_rng as rng_latest, Rng as RngLatest};
+use rand_0_8_5::{Rng as RngLegacy, thread_rng as rng_legacy};
+use rand_0_9_2::{Rng as RngLatest, thread_rng as rng_latest};
 use sha2::{Digest, Sha256};
 
 // --- GIT-COMPLIANT SHA-1 ENGINE ---
 pub fn git_sha1(data: &[u8]) -> String {
-    let mut h0: u32 = 0x67452301; let mut h1: u32 = 0xEFCDAB89;
-    let mut h2: u32 = 0x98BADCFE; let mut h3: u32 = 0x10325476;
+    let mut h0: u32 = 0x67452301;
+    let mut h1: u32 = 0xEFCDAB89;
+    let mut h2: u32 = 0x98BADCFE;
+    let mut h3: u32 = 0x10325476;
     let mut h4: u32 = 0xC3D2E1F0;
     let mut padded = data.to_vec();
     let bit_len = (padded.len() as u64) * 8;
     padded.push(0x80);
-    while (padded.len() * 8) % 512 != 448 { padded.push(0); }
+    while (padded.len() * 8) % 512 != 448 {
+        padded.push(0);
+    }
     padded.extend_from_slice(&bit_len.to_be_bytes());
     for chunk in padded.chunks(64) {
         let mut w = [0u32; 80];
-        for i in 0..16 { w[i] = u32::from_be_bytes([chunk[i*4], chunk[i*4+1], chunk[i*4+2], chunk[i*4+3]]); }
-        for i in 16..80 { w[i] = (w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]).rotate_left(1); }
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes([
+                chunk[i * 4],
+                chunk[i * 4 + 1],
+                chunk[i * 4 + 2],
+                chunk[i * 4 + 3],
+            ]);
+        }
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+        }
         let (mut a, mut b, mut c, mut d, mut e) = (h0, h1, h2, h3, h4);
         for i in 0..80 {
             let (f, k) = match i {
@@ -29,17 +41,36 @@ pub fn git_sha1(data: &[u8]) -> String {
                 40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC),
                 _ => (b ^ c ^ d, 0xCA62C1D6),
             };
-            let temp = a.rotate_left(5).wrapping_add(f).wrapping_add(e).wrapping_add(k).wrapping_add(w[i]);
-            e = d; d = c; c = b.rotate_left(30); b = a; a = temp;
+            let temp = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(w[i]);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = temp;
         }
-        h0 = h0.wrapping_add(a); h1 = h1.wrapping_add(b);
-        h2 = h2.wrapping_add(c); h3 = h3.wrapping_add(d); h4 = h4.wrapping_add(e);
+        h0 = h0.wrapping_add(a);
+        h1 = h1.wrapping_add(b);
+        h2 = h2.wrapping_add(c);
+        h3 = h3.wrapping_add(d);
+        h4 = h4.wrapping_add(e);
     }
     format!("{:08x}{:08x}{:08x}{:08x}{:08x}", h0, h1, h2, h3, h4)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub enum SyncStage { Hour, Minute, Second, NonceGrind1Bit, NonceGrind2Bit, Sha256Mining }
+pub enum SyncStage {
+    Hour,
+    Minute,
+    Second,
+    NonceGrind1Bit,
+    NonceGrind2Bit,
+    Sha256Mining,
+}
 
 pub struct SyncNode {
     pub id: usize,
@@ -66,44 +97,89 @@ impl SyncNode {
         }
     }
 
-    pub fn get_logical_utc(&self) -> DateTime<Utc> { Utc::now() + self.adjustment }
+    pub fn get_logical_utc(&self) -> DateTime<Utc> {
+        Utc::now() + self.adjustment
+    }
 
-    pub fn update_stage(&mut self, spread: i64, all_same_minute: bool, global_success_reached: bool) {
+    pub fn update_stage(
+        &mut self,
+        spread: i64,
+        all_same_minute: bool,
+        global_success_reached: bool,
+    ) {
         match self.stage {
-            SyncStage::Hour => if spread < 3600 { self.stage = SyncStage::Minute; },
-            SyncStage::Minute => if spread < 60 { self.stage = SyncStage::Second; },
-            SyncStage::Second => if spread == 0 && all_same_minute { self.stage = SyncStage::NonceGrind1Bit; },
+            SyncStage::Hour => {
+                if spread < 3600 {
+                    self.stage = SyncStage::Minute;
+                }
+            }
+            SyncStage::Minute => {
+                if spread < 60 {
+                    self.stage = SyncStage::Second;
+                }
+            }
+            SyncStage::Second => {
+                if spread == 0 && all_same_minute {
+                    self.stage = SyncStage::NonceGrind1Bit;
+                }
+            }
             SyncStage::NonceGrind1Bit => {
                 if spread > 0 || !all_same_minute {
-                    self.stage = SyncStage::Second; self.success = false; self.nonce = 0;
+                    self.stage = SyncStage::Second;
+                    self.success = false;
+                    self.nonce = 0;
                 } else if global_success_reached {
-                    self.stage = SyncStage::NonceGrind2Bit; self.success = false;
+                    self.stage = SyncStage::NonceGrind2Bit;
+                    self.success = false;
                 }
-            },
+            }
             SyncStage::NonceGrind2Bit => {
                 if spread > 0 || !all_same_minute {
-                    self.stage = SyncStage::Second; self.success = false; self.nonce = 0;
+                    self.stage = SyncStage::Second;
+                    self.success = false;
+                    self.nonce = 0;
                 } else if global_success_reached {
-                    self.stage = SyncStage::Sha256Mining; self.success = false; self.nonce = 0;
+                    self.stage = SyncStage::Sha256Mining;
+                    self.success = false;
+                    self.nonce = 0;
                 }
-            },
-            SyncStage::Sha256Mining => if spread > 0 { self.stage = SyncStage::Second; self.success = false; self.nonce = 0; }
+            }
+            SyncStage::Sha256Mining => {
+                if spread > 0 {
+                    self.stage = SyncStage::Second;
+                    self.success = false;
+                    self.nonce = 0;
+                }
+            }
         }
     }
 
     pub fn grind_nonce(&mut self, target: &str) {
         let time = self.get_logical_utc();
         let minute = time.minute();
-        if self.nonce == 0 { self.nonce = self.rng_v8.gen_range(0..1000); }
+        if self.nonce == 0 {
+            self.nonce = self.rng_v8.gen_range(0..1000);
+        }
         loop {
             let input = format!("BLOCK-{}-{}", minute, self.nonce);
             let hash = git_sha1(input.as_bytes());
             if target == "00" {
-                if hash.starts_with("00") { self.last_hash = hash; self.success = true; break; } 
-                else if hash.starts_with('0') { self.last_hash = hash; self.nonce += 1; break; }
+                if hash.starts_with("00") {
+                    self.last_hash = hash;
+                    self.success = true;
+                    break;
+                } else if hash.starts_with('0') {
+                    self.last_hash = hash;
+                    self.nonce += 1;
+                    break;
+                }
             } else {
                 self.last_hash = hash;
-                if self.last_hash.starts_with(target) { self.success = true; } else { self.nonce += 1; }
+                if self.last_hash.starts_with(target) {
+                    self.success = true;
+                } else {
+                    self.nonce += 1;
+                }
                 break;
             }
             self.nonce += 1;
@@ -120,8 +196,13 @@ impl SyncNode {
             hasher.update(input.as_bytes());
             let hash = format!("{:x}", hasher.finalize());
             if hash.starts_with('0') {
-                if hash.starts_with(target) { self.last_hash = hash; self.success = true; } 
-                else { self.last_hash = hash; self.nonce += 1; }
+                if hash.starts_with(target) {
+                    self.last_hash = hash;
+                    self.success = true;
+                } else {
+                    self.last_hash = hash;
+                    self.nonce += 1;
+                }
                 break;
             }
             self.nonce += 1;
@@ -136,8 +217,11 @@ pub fn get_median_diff(timestamps: &[i64], current: i64) -> i64 {
 }
 
 pub fn print_report_header(round: i32, nodes_count: usize, spread: i64) {
-    println!("
-ROUND: {:03} | NODES: {:02} | SPREAD: {}s", round, nodes_count, spread);
+    println!(
+        "
+ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
+        round, nodes_count, spread
+    );
     println!("{:-<85}", "");
     println!(
         "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<20}",
@@ -157,21 +241,30 @@ pub fn run_byz_cascading_quorum_v2() {
         let current_times: Vec<DateTime<Utc>> = nodes.iter().map(|n| n.get_logical_utc()).collect();
         let timestamps: Vec<i64> = current_times.iter().map(|t| t.timestamp()).collect();
         let spread = (timestamps.iter().max().unwrap() - timestamps.iter().min().unwrap()).abs();
-        let all_same_minute = current_times.iter().all(|t| t.minute() == current_times[0].minute());
+        let all_same_minute = current_times
+            .iter()
+            .all(|t| t.minute() == current_times[0].minute());
         let global_success_reached = nodes.iter().all(|n| n.success);
 
         // TRIGGER: Entry gated by 2-bit SHA256 completion
-        let first_nodes_finished = nodes.len() == 5 && nodes.iter().all(|n| n.stage == SyncStage::Sha256Mining && n.success);
-        
+        let first_nodes_finished = nodes.len() == 5
+            && nodes
+                .iter()
+                .all(|n| n.stage == SyncStage::Sha256Mining && n.success);
+
         if !entrants_joined && first_nodes_finished {
-            println!("
->>> EVENT: 2-BIT CONSENSUS REACHED. JOINING 3 NODES & ESCALATING TO 3-BIT TARGET <<<");
+            println!(
+                "
+>>> EVENT: 2-BIT CONSENSUS REACHED. JOINING 3 NODES & ESCALATING TO 3-BIT TARGET <<<"
+            );
             let start_id = nodes.len();
             for i in 0..3 {
                 nodes.push(SyncNode::new(start_id + i, 1200 + (i as i64 * 15)));
             }
             entrants_joined = true;
-            for node in &mut nodes { node.success = false; }
+            for node in &mut nodes {
+                node.success = false;
+            }
             continue;
         }
 
@@ -184,17 +277,29 @@ pub fn run_byz_cascading_quorum_v2() {
             match nodes[i].stage {
                 SyncStage::Hour | SyncStage::Minute | SyncStage::Second => {
                     let d = get_median_diff(&timestamps, timestamps[i]);
-                    let step = if nodes[i].stage == SyncStage::Second { d.signum() } else { d / 2 };
+                    let step = if nodes[i].stage == SyncStage::Second {
+                        d.signum()
+                    } else {
+                        d / 2
+                    };
                     nodes[i].adjustment = nodes[i].adjustment + Duration::seconds(step);
                 }
-                SyncStage::NonceGrind1Bit => { if !nodes[i].success { nodes[i].grind_nonce("0"); } }
-                SyncStage::NonceGrind2Bit => { if !nodes[i].success { nodes[i].grind_nonce("00"); } }
-                SyncStage::Sha256Mining => { 
-                    if !nodes[i].success { 
+                SyncStage::NonceGrind1Bit => {
+                    if !nodes[i].success {
+                        nodes[i].grind_nonce("0");
+                    }
+                }
+                SyncStage::NonceGrind2Bit => {
+                    if !nodes[i].success {
+                        nodes[i].grind_nonce("00");
+                    }
+                }
+                SyncStage::Sha256Mining => {
+                    if !nodes[i].success {
                         // Target shifts to 3-bit once entrants have joined the quorum
                         let target = if entrants_joined { "000" } else { "00" };
-                        nodes[i].mine_sha256(target); 
-                    } 
+                        nodes[i].mine_sha256(target);
+                    }
                 }
             };
 
@@ -213,70 +318,121 @@ pub fn run_byz_cascading_quorum_v2() {
         }
 
         // EXIT: Quorum must achieve 3-bit finality
-        if entrants_joined && nodes.iter().all(|n| n.stage == SyncStage::Sha256Mining && n.success && n.last_hash.starts_with("000")) {
+        if entrants_joined
+            && nodes.iter().all(|n| {
+                n.stage == SyncStage::Sha256Mining && n.success && n.last_hash.starts_with("000")
+            })
+        {
             println!("{:-<85}", "");
-            println!(">>> CONSENSUS FINALIZED ACROSS ALL {} NODES AT 3-BIT DIFFICULTY <<<", nodes.len());
+            println!(
+                ">>> CONSENSUS FINALIZED ACROSS ALL {} NODES AT 3-BIT DIFFICULTY <<<",
+                nodes.len()
+            );
             break;
         }
 
         round += 1;
-        if round > 15000 { break; } // Increased limit to account for 3-bit difficulty time
+        if round > 15000 {
+            break;
+        } // Increased limit to account for 3-bit difficulty time
     }
 }
 
 pub fn run_byz_cascading_quorum() {
-    let mut nodes: Vec<SyncNode> = (0..10).map(|i| {
-        let offset = match i { 0..=2 => 10, 3..=5 => 5, _ => 2 };
-        SyncNode::new(i, offset)
-    }).collect();
+    let mut nodes: Vec<SyncNode> = (0..10)
+        .map(|i| {
+            let offset = match i {
+                0..=2 => 10,
+                3..=5 => 5,
+                _ => 2,
+            };
+            SyncNode::new(i, offset)
+        })
+        .collect();
 
     let mut round = 1;
     loop {
         let current_times: Vec<DateTime<Utc>> = nodes.iter().map(|n| n.get_logical_utc()).collect();
         let timestamps: Vec<i64> = current_times.iter().map(|t| t.timestamp()).collect();
         let spread = (timestamps.iter().max().unwrap() - timestamps.iter().min().unwrap()).abs();
-        let all_same_minute = current_times.iter().all(|t| t.minute() == current_times[0].minute());
-        
+        let all_same_minute = current_times
+            .iter()
+            .all(|t| t.minute() == current_times[0].minute());
+
         let global_step_reached = nodes.iter().all(|n| n.success);
 
-        println!("
---- [ROUND {:03}] Spread:{}s | MinSync:{} | Phase:{:?} ---", round, spread, all_same_minute, nodes[0].stage);
+        println!(
+            "
+--- [ROUND {:03}] Spread:{}s | MinSync:{} | Phase:{:?} ---",
+            round, spread, all_same_minute, nodes[0].stage
+        );
 
         for i in 0..10 {
             nodes[i].update_stage(spread, all_same_minute, global_step_reached);
             match nodes[i].stage {
                 SyncStage::Hour | SyncStage::Minute | SyncStage::Second => {
                     let d = get_median_diff(&timestamps, timestamps[i]);
-                    let step = if nodes[i].stage == SyncStage::Second { d.signum() } else { d / 2 };
+                    let step = if nodes[i].stage == SyncStage::Second {
+                        d.signum()
+                    } else {
+                        d / 2
+                    };
                     nodes[i].adjustment = nodes[i].adjustment + Duration::seconds(step);
-                },
-                SyncStage::NonceGrind1Bit => { if !nodes[i].success { nodes[i].grind_nonce("0"); } }
-                SyncStage::NonceGrind2Bit => { if !nodes[i].success { nodes[i].grind_nonce("00"); } }
-                SyncStage::Sha256Mining => { if !nodes[i].success { nodes[i].mine_sha256("00"); } }
+                }
+                SyncStage::NonceGrind1Bit => {
+                    if !nodes[i].success {
+                        nodes[i].grind_nonce("0");
+                    }
+                }
+                SyncStage::NonceGrind2Bit => {
+                    if !nodes[i].success {
+                        nodes[i].grind_nonce("00");
+                    }
+                }
+                SyncStage::Sha256Mining => {
+                    if !nodes[i].success {
+                        nodes[i].mine_sha256("00");
+                    }
+                }
             };
 
-            let mark = if nodes[i].success { "SOLVED " } else { "WAITING" };
+            let mark = if nodes[i].success {
+                "SOLVED "
+            } else {
+                "WAITING"
+            };
             println!(
-                "N{:02}|S:{}|UTC:{}|Nonce:{:<6}|{}|HASH:{}", 
-                i, nodes[i].stage as u8, current_times[i].format("%H:%M:%S"), 
-                nodes[i].nonce, mark, nodes[i].last_hash
+                "N{:02}|S:{}|UTC:{}|Nonce:{:<6}|{}|HASH:{}",
+                i,
+                nodes[i].stage as u8,
+                current_times[i].format("%H:%M:%S"),
+                nodes[i].nonce,
+                mark,
+                nodes[i].last_hash
             );
         }
 
-        if nodes.iter().all(|n| n.stage == SyncStage::Sha256Mining && n.success) {
-            println!("
->>> SUCCESS: ALL NODES ATTAINED SHA-256 2-BIT FINALITY <<<");
+        if nodes
+            .iter()
+            .all(|n| n.stage == SyncStage::Sha256Mining && n.success)
+        {
+            println!(
+                "
+>>> SUCCESS: ALL NODES ATTAINED SHA-256 2-BIT FINALITY <<<"
+            );
             break;
         }
         round += 1;
-        if round > 10000 { break; }
+        if round > 10000 {
+            break;
+        }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct EstimationTime {
-    pub d: f64, 
-    pub a: f64, 
+    pub d: f64,
+    pub a: f64,
 }
 
 pub fn estimate_offset_time(s: f64, r: f64, c: f64) -> EstimationTime {
@@ -298,14 +454,17 @@ pub struct SyncNodeTime {
 impl SyncNodeTime {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_adj: f64) -> Self {
         Self {
-            id, n, f, way_off,
+            id,
+            n,
+            f,
+            way_off,
             adj_p: initial_adj,
             state: String::from("Init"),
         }
     }
 
     pub fn get_local_time(&self) -> f64 {
-        self.adj_p 
+        self.adj_p
     }
 
     pub fn run_sync_cycle(&mut self, estimates: Vec<EstimationTime>) {
@@ -315,19 +474,19 @@ impl SyncNodeTime {
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m = d_overs[self.f]; 
+        let m = d_overs[self.f];
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adjustment = if m > -self.way_off && m_large < self.way_off {
             self.state = String::from("Synced");
-            (m.min(0.0) + m_large.max(0.0)) / 2.0 
+            (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
             self.state = String::from("RECOVERING");
-            (m + m_large) / 2.0 
+            (m + m_large) / 2.0
         };
 
         // 40% correction to visualize the halving convergence property
-        self.adj_p += raw_adjustment * 0.4; 
+        self.adj_p += raw_adjustment * 0.4;
     }
 }
 
@@ -368,9 +527,16 @@ impl NetworkTime {
             let estimates = all_estimates[i].clone();
             self.nodes[i].run_sync_cycle(estimates);
             let time = self.nodes[i].get_local_time();
-            if time < min_t { min_t = time; }
-            if time > max_t { max_t = time; }
-            println!("Node {:03} | {:11} | Clock: {:7.2}", self.nodes[i].id, self.nodes[i].state, time);
+            if time < min_t {
+                min_t = time;
+            }
+            if time > max_t {
+                max_t = time;
+            }
+            println!(
+                "Node {:03} | {:11} | Clock: {:7.2}",
+                self.nodes[i].id, self.nodes[i].state, time
+            );
         }
         max_t - min_t
     }
@@ -388,9 +554,11 @@ pub fn run_byz_time() {
 
         // Phase 1 -> Phase 2 Transition
         if spread < 1.0 && !turnover_started {
-            println!("
+            println!(
+                "
 >>> SYNC REACHED. COMMENCING TOTAL TURNOVER. <<<
-");
+"
+            );
             turnover_started = true;
         }
 
@@ -400,29 +568,36 @@ pub fn run_byz_time() {
             if let Some(id) = to_drop {
                 println!(">>> DROPPING ORIGINAL Node {:03} <<<", id);
                 net.nodes.retain(|n| n.id != id);
-                
+
                 let new_id = net.next_id;
                 println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
-                net.nodes.push(SyncNodeTime::new(new_id, 10, 3, 20.0, 800.0));
+                net.nodes
+                    .push(SyncNodeTime::new(new_id, 10, 3, 20.0, 800.0));
                 net.next_id += 1;
             } else {
                 turnover_complete = true;
-                println!("
+                println!(
+                    "
 >>> TURNOVER COMPLETE. ALL ORIGINALS DROPPED. FINAL STABILIZATION. <<<
-");
+"
+                );
             }
         }
 
         // Phase 3: Check for final sync of all newcomers
         let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
         if turnover_complete && all_synced && spread < 1.0 {
-            println!("
->>> SUCCESS: ALL NEWCOMERS FULLY SYNCED. TERMINATING. <<<");
+            println!(
+                "
+>>> SUCCESS: ALL NEWCOMERS FULLY SYNCED. TERMINATING. <<<"
+            );
             break;
         }
 
         round += 1;
-        if round > 300 { break; }
+        if round > 300 {
+            break;
+        }
     }
 }
 
@@ -436,7 +611,7 @@ pub fn estimate_offset_utc(s: DateTime<Utc>, r: DateTime<Utc>, c: DateTime<Utc>)
     // d = c - (r + s) / 2
     let send_receive_avg_ms = (r.timestamp_millis() + s.timestamp_millis()) / 2;
     let diff_ms = c.timestamp_millis() - send_receive_avg_ms;
-    
+
     EstimationUtc {
         d: diff_ms as f64 / 1000.0,
         a: (r.timestamp_millis() - s.timestamp_millis()) as f64 / 2000.0,
@@ -455,7 +630,10 @@ pub struct SyncNodeUtc {
 impl SyncNodeUtc {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_offset_sec: i64) -> Self {
         Self {
-            id, n, f, way_off,
+            id,
+            n,
+            f,
+            way_off,
             adjustment: Duration::seconds(initial_offset_sec),
             state: String::from("Init"),
         }
@@ -472,15 +650,15 @@ impl SyncNodeUtc {
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m = d_overs[self.f]; 
+        let m = d_overs[self.f];
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adj_sec = if m > -self.way_off && m_large < self.way_off {
             self.state = String::from("Synced");
-            (m.min(0.0) + m_large.max(0.0)) / 2.0 
+            (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
             self.state = String::from("RECOVERING");
-            (m + m_large) / 2.0 
+            (m + m_large) / 2.0
         };
 
         // Apply 40% of the correction (halving-style convergence)
@@ -526,9 +704,14 @@ impl NetworkUtc {
             self.nodes[i].run_sync_cycle(estimates);
             let time = self.nodes[i].get_logical_utc();
             timestamps.push(time.timestamp_millis());
-            println!("Node {:03} | {:11} | UTC: {}", self.nodes[i].id, self.nodes[i].state, time.format("%H:%M:%S%.3f"));
+            println!(
+                "Node {:03} | {:11} | UTC: {}",
+                self.nodes[i].id,
+                self.nodes[i].state,
+                time.format("%H:%M:%S%.3f")
+            );
         }
-        
+
         let min_t = *timestamps.iter().min().unwrap();
         let max_t = *timestamps.iter().max().unwrap();
         (max_t - min_t) as f64 / 1000.0
@@ -546,9 +729,11 @@ pub fn run_utc_consensus() {
         let spread_sec = net.simulate_step();
 
         if spread_sec < 1.0 && !turnover_started {
-            println!("
+            println!(
+                "
 >>> UTC SYNC REACHED. COMMENCING TOTAL TURNOVER. <<<
-");
+"
+            );
             turnover_started = true;
         }
 
@@ -557,7 +742,7 @@ pub fn run_utc_consensus() {
             if let Some(id) = to_drop {
                 println!(">>> DROPPING ORIGINAL Node {:03} <<<", id);
                 net.nodes.retain(|n| n.id != id);
-                
+
                 let new_id = net.next_id;
                 // Newcomer starts 2 hours (7200s) behind
                 println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
@@ -565,20 +750,26 @@ pub fn run_utc_consensus() {
                 net.next_id += 1;
             } else {
                 turnover_complete = true;
-                println!("
+                println!(
+                    "
 >>> TURNOVER COMPLETE. WAITING FOR NEWCOMER SYNC. <<<
-");
+"
+                );
             }
         }
 
         let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
         if turnover_complete && all_synced && spread_sec < 1.0 {
-            println!("
->>> SUCCESS: ALL NEWCOMERS SYNCED TO UTC CONSENSUS. <<<");
+            println!(
+                "
+>>> SUCCESS: ALL NEWCOMERS SYNCED TO UTC CONSENSUS. <<<"
+            );
             break;
         }
 
         round += 1;
-        if round > 500 { break; }
+        if round > 500 {
+            break;
+        }
     }
 }

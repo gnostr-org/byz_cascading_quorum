@@ -1,60 +1,71 @@
 pub mod p2p {
-    use libp2p::{futures::StreamExt, identity, PeerId, swarm::{NetworkBehaviour, SwarmEvent}};
-    use libp2p::gossipsub::{self, MessageAuthenticity, MessageId, GossipsubEvent, GossipsubMessage, /*RawGossipsubMessage*/};
-    use libp2p::kad::{self, KademliaEvent};
-    use libp2p::mdns::{self, MdnsEvent};
-    use libp2p::autonat::{self, NatStatus};
-    use std::collections::hash_map::{DefaultHasher, HashMap};
-    use std::hash::{Hash, Hasher};
+    use libp2p::futures::FutureExt;
+    use tokio_stream::StreamExt;
+    use libp2p::{
+        autonat::{self, NatStatus},
+        gossipsub::{self, MessageAuthenticity, Topic},
+        identify,
+        identity,
+        kad::{self, store::MemoryStore},
+        mdns,
+        swarm::{NetworkBehaviour, SwarmEvent},
+        PeerId,
+        Transport,
+    };
     use std::time::Duration;
     use tokio::{io::{self, AsyncBufReadExt}, select};
+    use tokio_stream::wrappers::LinesStream;
+    use libp2p_noise::Config as NoiseConfig;
+    use libp2p::core::upgrade;
+    use libp2p::core::transport::OrTransport;
+    use libp2p::quic;
+    use libp2p::tcp;
 
-    // We create a custom network behaviour that combines Gossipsub and Kademlia. // GEMINI: Add autonat, identify and mdns
     #[derive(NetworkBehaviour)]
     #[behaviour(out_event = "MyBehaviourEvent")]
     pub struct MyBehaviour {
-        pub gossipsub: gossipsub::Gossipsub,
-        pub kademlia: kad::Kademlia<libp2p::kad::store::MemoryStore>,
-        pub mdns: mdns::async_mdns::Behaviour,
-        pub identify: libp2p::identify::Behaviour,
+        pub gossipsub: gossipsub::Behaviour,
+        pub kademlia: kad::Behaviour<MemoryStore>,
+        pub mdns: mdns::tokio::Behaviour,
+        pub identify: identify::Behaviour,
         pub autonat: autonat::Behaviour,
     }
 
     #[derive(Debug)]
     pub enum MyBehaviourEvent {
-        Gossipsub(GossipsubEvent),
-        Kademlia(KademliaEvent),
-        Mdns(MdnsEvent),
-        Identify(libp2p::identify::Event),
+        Gossipsub(gossipsub::Event),
+        Kademlia(kad::Event),
+        Mdns(mdns::Event),
+        Identify(identify::Event),
         Autonat(autonat::Event),
     }
 
-    impl From<GossipsubEvent> for MyBehaviourEvent {
-        fn from(event: GossipsubEvent) {
+    impl From<gossipsub::Event> for MyBehaviourEvent {
+        fn from(event: gossipsub::Event) -> Self {
             MyBehaviourEvent::Gossipsub(event)
         }
     }
 
-    impl From<KademliaEvent> for MyBehaviourEvent {
-        fn from(event: KademliaEvent) {
+    impl From<kad::Event> for MyBehaviourEvent {
+        fn from(event: kad::Event) -> Self {
             MyBehaviourEvent::Kademlia(event)
         }
     }
 
-    impl From<MdnsEvent> for MyBehaviourEvent {
-        fn from(event: MdnsEvent) {
+    impl From<mdns::Event> for MyBehaviourEvent {
+        fn from(event: mdns::Event) -> Self {
             MyBehaviourEvent::Mdns(event)
         }
     }
 
-    impl From<libp2p::identify::Event> for MyBehaviourEvent {
-        fn from(event: libp2p::identify::Event) {
+    impl From<identify::Event> for MyBehaviourEvent {
+        fn from(event: identify::Event) -> Self {
             MyBehaviourEvent::Identify(event)
         }
     }
 
     impl From<autonat::Event> for MyBehaviourEvent {
-        fn from(event: autonat::Event) {
+        fn from(event: autonat::Event) -> Self {
             MyBehaviourEvent::Autonat(event)
         }
     }
@@ -64,37 +75,59 @@ pub mod p2p {
         let local_peer_id = PeerId::from(local_key.public());
         println!("Local peer id: {:?}", local_peer_id);
 
-        let transport = libp2p::development_transport(local_key.clone()).await?;
+        let transport = {
+            let tcp_config = tcp::Config::new().nodelay(true);
 
-        // Create a custom gossipsub configuration
-        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
+            // TCP/WebSocket transport with upgrades
+            let tcp_transport = libp2p::dns::tokio::Transport::system(libp2p::tcp::tokio::Transport::new(tcp_config.clone()))?
+                .upgrade(upgrade::Version::V1Lazy)
+                .authenticate(NoiseConfig::new(&local_key).expect("Failed to create noise config."))
+                .multiplex(libp2p::yamux::Config::default())
+                .boxed();
+
+            // QUIC transport
+            let quic_transport = libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(&local_key))
+                .boxed();
+
+            // Combine transports
+            OrTransport::new(tcp_transport, quic_transport)
+                .timeout(Duration::from_secs(30))
+                .boxed()
+        };
+        let gossipsub_config = gossipsub::ConfigBuilder::default()
             .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by sending heartbeats more often.
             .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation or checks performed by the network.
             .build()?;
+        let mut gossipsub = gossipsub::Behaviour::new(
+            MessageAuthenticity::Signed(local_key.clone()),
+            gossipsub_config,
+        )?;
 
-        // Create a gossipsub network behaviour
-        let mut gossipsub = gossipsub::Gossipsub::new(MessageAuthenticity::Signed(local_key.clone()), gossipsub_config)?;
-
-        // Create a Kademlia network behaviour
-        let mut /*kademlia*/ kademlia_config = kad::KademliaConfig::default();
+        let mut kademlia_config = kad::Config::default();
         kademlia_config.set_query_timeout(Duration::from_secs(5 * 60));
-        let mut kademlia = kad::Kademlia::new(local_peer_id, kad::store::MemoryStore::new(local_peer_id), kademlia_config);
-        
-        // Create mDNS, identify, and autonat behaviours
-        let mdns = mdns::async_mdns::Behaviour::new(mdns::Config::default(), local_peer_id)?;
-        let identify = libp2p::identify::Behaviour::new(libp2p::identify::Config::new("/ipfs/0.1.0".to_string(), local_key.public()));
+        let mut kademlia = kad::Behaviour::with_config(
+            local_peer_id,
+            MemoryStore::new(local_peer_id),
+            kademlia_config,
+        );
+
+        let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?;
+        let identify = identify::Behaviour::new(identify::Config::new(
+            "/ipfs/0.1.0".to_string(),
+            local_key.public(),
+        ));
         let autonat = autonat::Behaviour::new(local_peer_id, autonat::Config::default());
 
+        let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+            .with_tokio()
+            .with_transport(transport)?
+            .with_behaviour(MyBehaviour { gossipsub, kademlia, mdns, identify, autonat })?
+            .build();
 
-        // Create a Swarm to manage peers and events
-        let mut swarm = libp2p::SwarmBuilder::with_tokio_transport(transport, MyBehaviour { gossipsub, kademlia, mdns, identify, autonat }, local_peer_id).build();
-
-        // Listen on all interfaces and whatever port the OS assigns
         swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
         swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
 
-        // We enter a loop to receive events from the Swarm.
-        let mut stdin = io::BufReader::new(io::stdin()).lines();
+        let mut stdin = LinesStream::new(io::BufReader::new(io::stdin()).lines());
 
         loop {
             select! {
@@ -106,7 +139,7 @@ pub mod p2p {
 
                         match command {
                             "SUB" => {
-                                let topic = gossipsub::Topic::new(arg);
+                                let topic = Topic::new(arg);
                                 if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&topic) {
                                     eprintln!("Error subscribing to topic {}: {}", arg, e);
                                 } else {
@@ -117,7 +150,7 @@ pub mod p2p {
                                 let mut parts = arg.splitn(2, ' ');
                                 let topic_str = parts.next().unwrap_or("");
                                 let message = parts.next().unwrap_or("");
-                                let topic = gossipsub::Topic::new(topic_str);
+                                let topic = Topic::new(topic_str);
                                 if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, message.as_bytes()) {
                                     eprintln!("Error publishing to topic {}: {}", topic_str, e);
                                 } else {
@@ -143,9 +176,9 @@ pub mod p2p {
                         println!("Listening on {:?}", address);
                     },
                     SwarmEvent::Behaviour(event) => match event {
-                        MyBehaviourEvent::Gossipsub(gossipsub::GossipsubEvent::Message { propagation_source: peer_id, message_id: id, message }) => {
+                        MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message }) => {
                             println!(
-                                "Got message: 
+                                "Got message:
                                     topic: {},
                                     message ID: {},
                                     message from: {},
@@ -156,21 +189,25 @@ pub mod p2p {
                                     String::from_utf8_lossy(&message.data),
                             );
                         },
-                        MyBehaviourEvent::Kademlia(KademliaEvent::OutboundQueryCompleted { result, .. }) => {
-                            if let kad::QueryResult::GetProviders(ok) = result {
-                                for peer in ok.providers {
-                                    println!("Peer {:?} provides service.", peer);
-                                }
+                        MyBehaviourEvent::Kademlia(kad::Event::OutboundQueryProgressed { result: kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FoundProviders { providers, .. })), .. }) => {
+                            for peer in providers {
+                                println!("Peer {:?} provides service.", peer);
                             }
                         },
-                        MyBehaviourEvent::Mdns(mdns::MdnsEvent::Discovered(list)) => {
+                        MyBehaviourEvent::Kademlia(kad::Event::OutboundQueryProgressed { result: kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FinishedWithNoAdditionalRecord { .. })), .. }) => {
+                            println!("Kademlia: No additional providers found.");
+                        },
+                        MyBehaviourEvent::Kademlia(kad::Event::OutboundQueryProgressed { result: kad::QueryResult::GetProviders(Err(err)), .. }) => {
+                            eprintln!("Error getting providers: {:?}", err);
+                        },
+                        MyBehaviourEvent::Mdns(mdns::Event::Discovered(list)) => {
                             for (peer_id, multiaddr) in list {
                                 println!("mDNS discovered a new peer: {} with address {}", peer_id, multiaddr);
                                 swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                                 swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
                             }
                         },
-                        MyBehaviourEvent::Mdns(mdns::MdnsEvent::Expired(list)) => {
+                        MyBehaviourEvent::Mdns(mdns::Event::Expired(list)) => {
                             for (peer_id, multiaddr) in list {
                                 println!("mDNS discovered peer expired: {} with address {}", peer_id, multiaddr);
                                 swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
@@ -178,16 +215,15 @@ pub mod p2p {
                             }
                         },
                         MyBehaviourEvent::Identify(identify_event) => {
-                            // println!("Identify event: {:?}", identify_event);
-                            if let libp2p::identify::Event::Received { peer_id, info, .. } = identify_event {
+                            if let identify::Event::Received { peer_id, info, .. } = identify_event {
                                 for addr in info.listen_addrs {
                                     swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
                                 }
                             }
                         },
                         MyBehaviourEvent::Autonat(autonat_event) => {
-                            if let autonat::Event::StatusChanged { new_status, .. } = autonat_event {
-                                match new_status {
+                            if let autonat::Event::StatusChanged { new, .. } = autonat_event {
+                                match new {
                                     NatStatus::Public(addr) => println!("Autonat: Public address identified: {}", addr),
                                     NatStatus::Private => println!("Autonat: Private network detected."),
                                     NatStatus::Unknown => println!("Autonat: NAT status unknown."),
