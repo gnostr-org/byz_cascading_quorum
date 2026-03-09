@@ -242,23 +242,27 @@ impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
 }
 
 fn print_quorum_status(
-    local_peer_id: &PeerId, 
-    local_node: &SyncNodeUtc, 
+    local_peer_id: &PeerId,
+    local_node: &SyncNodeUtc,
     local_addrs: &[Multiaddr],
     peer_reports: &HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)>
 ) {
-    println!("\n--- [QUORUM CONSENSUS REPORT] ---");
-    println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS");
-    println!("{:-<95}", "");
-    
-    // Print Local Node
     let now = Utc::now();
+    println!("\n====================================================================================================");
+    println!("[QUORUM CONSENSUS REPORT] - {}", now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    println!("====================================================================================================");
+    println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}", "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT", "STATE", "MULTIADDRESS");
+    println!("{:-<100}", "");
+
+    // Print Local Node (Self)
     let local_addr_str = local_addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
     let local_peer_id_str = local_peer_id.to_string();
-    println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
-        format!("{:.6}...{:.6}", &local_peer_id_str[..6], &local_peer_id_str[local_peer_id_str.len()-6..]), 
-        now.format("%H:%M:%S"),
-        local_node.get_logical_utc().format("%H:%M:%S"),
+    let short_id = format!("{:.6}...{:.6}", &local_peer_id_str[..6], &local_peer_id_str[local_peer_id_str.len()-6..]);
+
+    println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
+        format!("{}", short_id),
+        now.format("%H:%M:%S%.3f"),
+        local_node.get_logical_utc().format("%H:%M:%S%.3f"),
         format!("{}ms", local_node.adjustment.num_milliseconds()),
         local_node.state,
         local_addr_str
@@ -268,18 +272,19 @@ fn print_quorum_status(
     for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
         let addr_str = addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
         let peer_id_str = peer_id.to_string();
-        println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
-            format!("{:.6}...{:.6}", &peer_id_str[..6], &peer_id_str[peer_id_str.len()-6..]), 
-            system_time.format("%H:%M:%S"),
-            logical_time.format("%H:%M:%S"),
+        let short_peer_id = format!("{:.6}...{:.6}", &peer_id_str[..6], &peer_id_str[peer_id_str.len()-6..]);
+
+        println!("{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
+            short_peer_id,
+            system_time.format("%H:%M:%S%.3f"),
+            logical_time.format("%H:%M:%S%.3f"),
             format!("{}ms", adj),
             state,
             addr_str
         );
     }
-    println!("{:-<95}\n", "");
+    println!("{:-<100}\n", "");
 }
-
 pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
