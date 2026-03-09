@@ -19,6 +19,10 @@ struct Args {
     /// Gossipsub topic to join
     #[arg(short, long, default_value = "gnostr")]
     topic: String,
+
+    /// Total number of nodes expected in the quorum
+    #[arg(short, long)]
+    num_nodes: usize,
 }
 
 #[tokio::main]
@@ -37,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = IdentTopic::new(args.topic);
     let bootstrap_nodes = args.bootstrap.map(|a| vec![a]).unwrap_or_default();
 
-    evt_loop(send_rx, recv_tx, topic, None, args.offset, bootstrap_nodes)
+    evt_loop(send_rx, recv_tx, topic, None, args.offset, bootstrap_nodes, args.num_nodes)
         .await
         .map_err(anyhow::Error::into)
 }
