@@ -1,22 +1,23 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::{Result, anyhow};
-use crate::{SyncStage, SyncNode, EstimationUtc, SyncNodeUtc, NetworkUtc, estimate_offset_utc};
-use chrono::{DateTime, Utc/*, Duration*/};
-use libp2p::identity;
+use libp2p::futures::stream::StreamExt;
 use libp2p::{
-    StreamProtocol,
-    futures::stream::StreamExt,
-    gossipsub, identify, kad, mdns, noise, ping,
+    StreamProtocol, gossipsub, identify, kad, mdns, noise, ping,
     request_response::{self, ProtocolSupport},
     swarm::{NetworkBehaviour, SwarmEvent},
-    tcp, yamux,
+    tcp, yamux, identity,
 };
-use serde_json;
+use tokio::sync::Mutex;
 use terminal_size::{Width, terminal_size};
 use textwrap::{self, Options};
-use tokio::{select, sync::Mutex};
-use tracing::{debug, trace, warn};
+use tokio::select;
+use tracing::{debug, warn};
+use serde_json;
+use chrono::{DateTime, Utc};
+
+// Use types from the main library
+use crate::{SyncNodeUtc, EstimationUtc, estimate_offset_utc};
 
 // Placeholder for application-specific types
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -24,7 +25,7 @@ pub struct Msg {
     pub from: Option<String>,
     pub kind: MsgKind,
     pub commit_id: Option<String>,
-    pub nostr_event: Option<String>, // Placeholder
+    pub nostr_event: Option<String>,
     pub message_id: Option<String>,
     pub sequence_num: Option<usize>,
     pub total_chunks: Option<usize>,
@@ -72,16 +73,14 @@ impl Default for MsgKind {
 pub struct TimeSyncMessage {
     pub peer_id: String,
     pub timestamp: DateTime<Utc>,
-    pub adjustment: Duration,
+    pub adjustment_ms: i64,
 }
 
-// Placeholder for FileRequest and FileResponse
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct FileRequest(String);
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct FileResponse(Vec<u8>);
 
-// Placeholder for InternalEvent (queue system)
 #[derive(Debug)]
 pub enum InternalEvent {
     ChatMessage(Msg),
@@ -91,9 +90,7 @@ pub enum InternalEvent {
 
 pub const IPFS_PROTO_NAME: StreamProtocol = StreamProtocol::new("/ipfs/kad/1.0.0");
 
-// Struct to manage message reassembly
 pub struct MessageReassembler {
-    // message_id -> (total_chunks, received_chunks, chunks)
     buffer: Mutex<HashMap<String, (usize, usize, Vec<Option<Msg>>)>>,
 }
 
@@ -104,115 +101,59 @@ impl MessageReassembler {
         }
     }
 
-    /// Adds a message chunk to the buffer and attempts reassembly.
-    /// Returns Some(complete_message) if reassembly is successful, None
-    /// otherwise.
     pub async fn add_chunk_and_reassemble(&self, msg_chunk: Msg) -> Option<Msg> {
-        debug!("Reassembler: Attempting to add chunk and reassemble for msg_chunk: {:?}", msg_chunk);
         if msg_chunk.message_id.is_none()
             || msg_chunk.sequence_num.is_none()
             || msg_chunk.total_chunks.is_none()
         {
-            // Not a multi-part message, or missing sequencing info
-            debug!("Received non-multi-part message or message with missing sequencing info.");
             return None;
         }
 
-        let message_id = msg_chunk.message_id.clone().unwrap(); // Clone here
+        let message_id = msg_chunk.message_id.clone().unwrap();
         let sequence_num = msg_chunk.sequence_num.unwrap();
         let total_chunks = msg_chunk.total_chunks.unwrap();
-
-        debug!(
-            "AddChunk: Received chunk for message_id: {}, sequence_num: {}/{}, content_len: {}",
-            message_id,
-            sequence_num + 1,
-            total_chunks,
-            msg_chunk.content[0].len()
-        );
 
         let mut buffer_guard = self.buffer.lock().await;
 
         let (buffered_total_chunks, received_count, chunks) =
             buffer_guard.entry(message_id.clone()).or_insert_with(|| {
-                debug!(
-                    "AddChunk: Initializing buffer for message_id: {} with total_chunks: {}",
-                    message_id, total_chunks
-                );
                 (total_chunks, 0, vec![None; total_chunks])
             });
 
-        // Ensure consistency if a message_id is reused with different total_chunks
-        // Or if an invalid chunk is received for an already existing message_id
         if *buffered_total_chunks != total_chunks {
-            debug!(
-                "AddChunk: Inconsistent total_chunks for message_id {}. Expected {}, got {}",
-                message_id, *buffered_total_chunks, total_chunks
-            );
             buffer_guard.remove(&message_id);
             return None;
         }
 
         if sequence_num < total_chunks {
             if chunks[sequence_num].is_none() {
-                chunks[sequence_num] = Some(msg_chunk.clone()); // Clone msg_chunk here
+                chunks[sequence_num] = Some(msg_chunk.clone());
                 *received_count += 1;
-                debug!(
-                    "AddChunk: Chunk {} received for message_id: {}. Total received: {}/{}",
-                    sequence_num, message_id, *received_count, total_chunks
-                );
-            } else {
-                debug!(
-                    "AddChunk: Duplicate chunk received for message_id {} sequence {}",
-                    message_id, sequence_num
-                );
             }
         } else {
-            debug!(
-                "AddChunk: Invalid sequence_num {} for message_id {} (total_chunks {})",
-                sequence_num, message_id, total_chunks
-            );
             return None;
         }
 
         if *received_count == total_chunks {
-            debug!(
-                "AddChunk: All chunks received for message_id: {}. Attempting reassembly.",
-                message_id
-            );
-            // All chunks received, reassemble
             let mut full_content = String::new();
             let mut reassembled_msg = Msg::default();
 
             for (i, chunk_option) in chunks.iter().enumerate() {
                 if let Some(chunk) = chunk_option {
                     if i == 0 {
-                        // Use the first chunk's metadata for the reassembled message
                         reassembled_msg.from = chunk.from.clone();
                         reassembled_msg.kind = chunk.kind;
                         reassembled_msg.commit_id = chunk.commit_id.clone();
                         reassembled_msg.nostr_event = chunk.nostr_event.clone();
-                        // Reset sequencing info as it's now a single complete message
                         reassembled_msg.message_id = None;
                         reassembled_msg.sequence_num = None;
                         reassembled_msg.total_chunks = None;
                     }
                     full_content.push_str(&chunk.content[0]);
-                } else {
-                    // This should not happen if received_count == total_chunks
-                    debug!(
-                        "AddChunk: Critical error - Missing chunk for message_id {} at sequence {} during reassembly despite received_count matching total_chunks.",
-                        message_id, i
-                    );
-                    buffer_guard.remove(&message_id);
-                    return None;
                 }
             }
             reassembled_msg.content = vec![full_content];
             buffer_guard.remove(&message_id);
-            debug!(
-                "AddChunk: Successfully reassembled message for message_id: {}.",
-                message_id
-            );
             Some(reassembled_msg)
         } else {
             None
@@ -230,52 +171,23 @@ pub struct MyBehaviour {
     pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
 }
 
-/// async_prompt
-pub async fn async_prompt(mempool_url: String) -> String {
-    debug!("async_prompt: Fetching from mempool_url: {}", mempool_url);
-    let s = tokio::spawn(async move {
-        let agent: ureq::Agent = ureq::AgentBuilder::new()
-            .timeout_read(Duration::from_secs(10))
-            .timeout_write(Duration::from_secs(10))
-            .build();
-        let body: String = agent
-            .get(&mempool_url)
-            .call()
-            .expect("")
-            .into_string()
-            .expect("mempool_url:body:into_string:fail!");
-
-        body
-    });
-
-    s.await.unwrap()
-}
-
-/// evt_loop
 pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
     topic: gossipsub::IdentTopic,
 ) -> Result<()> {
-    debug!("evt_loop: Starting event loop with topic: {}", topic);
-    let reassembler = Arc::new(MessageReassembler::new()); // Create reassembler here
-    let mut net = NetworkUtc::new();
-    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(5)); // Sync every 5 seconds
+    let reassembler = Arc::new(MessageReassembler::new());
+    
+    // Time Consensus State
+    let mut local_node = SyncNodeUtc::new(0, 10, 3, 20.0, 0); // Local node ID 0
+    let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
+    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
 
-    let keypair = libp2p::identity::Keypair::generate_ed25519();
+    let keypair = identity::Keypair::generate_ed25519();
     let public_key = keypair.public();
-    let peer_id = libp2p::PeerId::from_public_key(&public_key); // Use libp2p::PeerId
-    warn!("Local PeerId: {}", peer_id);
+    let local_peer_id = public_key.to_peer_id();
+    warn!("Local PeerId: {}", local_peer_id);
 
-    // Placeholder for message_id_fn
-    let _message_id_fn = |message: &gossipsub::Message| {
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut s = DefaultHasher::new();
-        message.data.hash(&mut s);
-        gossipsub::MessageId::from(s.finish().to_string())
-    };
-
-    #[allow(clippy::redundant_closure)]
     let gossipsub_config = gossipsub::ConfigBuilder::default()
         .heartbeat_interval(Duration::from_secs(10))
         .validation_mode(gossipsub::ValidationMode::Strict)
@@ -302,19 +214,15 @@ pub async fn evt_loop(
                     gossipsub_config,
                 )
                 .expect("Failed to create gossipsub behaviour"),
-                mdns: libp2p::mdns::tokio::Behaviour::new(
-                    libp2p::mdns::Config::default(),
+                mdns: mdns::tokio::Behaviour::new(
+                    mdns::Config::default(),
                     key.public().to_peer_id(),
                 )?,
                 identify: identify::Behaviour::new(identify::Config::new(
                     "/ipfs/id/1.0.0".to_string(),
                     key.public(),
                 )),
-                kademlia: kad::Behaviour::with_config(
-                    key.public().to_peer_id(),
-                    kad_store,
-                    kad_config,
-                ),
+                kademlia: kad::Behaviour::with_config(key.public().to_peer_id(), kad_store, kad_config),
                 ping: ping::Behaviour::new(ping::Config::new()),
                 request_response: request_response::cbor::Behaviour::new(
                     [(
@@ -330,143 +238,77 @@ pub async fn evt_loop(
         })
         .build();
 
-    // subscribes to our topic
     swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-
-    // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    debug!("Enter messages via STDIN and they will be sent to connected peers using Gossipsub");
-
-    // Helper function for text wrapping
-    fn apply_text_wrapping(msg: &mut Msg, terminal_width: usize) {
-        trace!("apply_text_wrapping: Wrapping message content for kind: {:?}, terminal_width: {}", msg.kind, terminal_width);
-        if msg.content.is_empty() {
-            return;
-        }
-
-        match msg.kind {
-            MsgKind::Chat | MsgKind::OneShot => {
-                let wrapped_content = textwrap::fill(&msg.content[0], Options::new(terminal_width));
-                msg.content = wrapped_content.lines().map(String::from).collect();
-            }
-            MsgKind::GitDiff => {
-                let mut wrapped_lines = Vec::new();
-                for line in msg.content[0].lines() {
-                    let (prefix, content) = if line.starts_with('+') {
-                        ("+", &line[1..])
-                    } else if line.starts_with('-') {
-                        ("-", &line[1..])
-                    } else if line.starts_with(' ') {
-                        (" ", &line[1..])
-                    } else if line.starts_with("diff --git")
-                        || line.starts_with("index")
-                        || line.starts_with("--- a/")
-                        || line.starts_with("+++ b/")
-                    {
-                        wrapped_lines.push(line.to_string());
-                        continue;
-                    } else if line.starts_with("@@") {
-                        ("@@", &line[2..])
-                    } else {
-                        ("", line)
-                    };
-
-                    let wrap_width = if terminal_width > prefix.len() {
-                        terminal_width - prefix.len()
-                    } else {
-                        terminal_width
-                    };
-
-                    let wrapped_segments = textwrap::fill(content, Options::new(wrap_width));
-                    for (i, segment) in wrapped_segments.lines().enumerate() {
-                        if i == 0 {
-                            wrapped_lines.push(format!("{}{}", prefix, segment));
-                        } else {
-                            wrapped_lines.push(format!(
-                                "{:indent$}{}",
-                                "",
-                                segment,
-                                indent = prefix.len()
-                            ));
-                        }
-                    }
-                }
-                msg.content = wrapped_lines;
-            }
-            _ => { /* No wrapping for other message kinds */ }
-        }
-    }
-
-    // Kick it off
     loop {
         select! {
+            _ = time_sync_interval.tick() => {
+                debug!("TimeSync: Running sync cycle with {} estimates.", peer_estimates.len());
+                if !peer_estimates.is_empty() {
+                    let estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
+                    local_node.run_sync_cycle(estimates);
+                    peer_estimates.clear();
+                }
+
+                // Broadcast local time
+                let sync_msg = TimeSyncMessage {
+                    peer_id: local_peer_id.to_string(),
+                    timestamp: Utc::now(),
+                    adjustment_ms: local_node.adjustment.num_milliseconds(),
+                };
+                
+                let mut msg = Msg::default();
+                msg.kind = MsgKind::TimeSync;
+                msg.content = vec![serde_json::to_string(&sync_msg)?];
+                
+                if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
+                    warn!("Failed to publish time sync message: {:?}", e);
+                }
+            }
             Some(event) = send.recv() => {
                 if let InternalEvent::ChatMessage(m) = event {
-                    if let Err(e) = swarm
-                        .behaviour_mut().gossipsub
-                        .publish(topic.clone(), serde_json::to_vec(&m)?) {
-                        debug!("Publish error: {e:?}");
-                        let m = Msg::default().set_content(format!("publish error: {e:?}"), 0).set_kind(MsgKind::System);
-                        recv.send(InternalEvent::ShowErrorMsg(m.to_string())).await?;
+                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&m)?) {
+                        warn!("Publish error: {:?}", e);
                     }
                 }
             }
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                    debug!("evt_loop: Mdns discovered list event.");
-                }
-                _ = time_sync_interval.tick() => {
-                    // Periodic time synchronization trigger
-                    debug!("TimeSync: Interval tick, initiating time sync step.");
                     for (peer_id, _multiaddr) in list {
-                        debug!("mDNS discovered a new peer: {peer_id}");
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                        let m = Msg::default().set_content(format!("discovered new peer: {peer_id}"), 0).set_kind(MsgKind::System);
-                        recv.send(InternalEvent::ShowInfoMsg(m.to_string())).await?;
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        debug!("mDNS discover peer has expired: {peer_id}");
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                        let m = Msg::default().set_content(format!("peer expired: {peer_id}"), 0).set_kind(MsgKind::System);
-                        recv.send(InternalEvent::ShowInfoMsg(m.to_string())).await?;
                     }
                 },
-                SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
-                    debug!(
-                        "Got message: '{}' with id: {id} from peer: {peer_id}",
-                        String::from_utf8_lossy(&message.data),
-                    );
+                SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: _peer_id, message_id: _id, message, })) => {
                     match serde_json::from_slice::<Msg>(&message.data) {
                         Ok(msg) => {
-                            if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
-                                                                if let Some(mut reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {
-                                                                    let terminal_width = terminal_size().map(|(Width(w), _)| w as usize).unwrap_or(80);
-                                                                    apply_text_wrapping(&mut reassembled_msg, terminal_width);
-                                                                    recv.send(InternalEvent::ChatMessage(reassembled_msg)).await?;
-                                                                }
+                            if msg.kind == MsgKind::TimeSync {
+                                if let Ok(sync_msg) = serde_json::from_str::<TimeSyncMessage>(&msg.content[0]) {
+                                    let s = sync_msg.timestamp;
+                                    let r = Utc::now();
+                                    let c = sync_msg.timestamp + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
+                                    let estimate = estimate_offset_utc(s, r, c);
+                                    peer_estimates.insert(sync_msg.peer_id, estimate);
+                                }
+                            } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
+                                if let Some(reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {
+                                    let _ = recv.send(InternalEvent::ChatMessage(reassembled_msg)).await;
+                                }
                             } else {
-                                // It's a single-part message, send directly
-                                let mut processed_msg = msg;
-                                let terminal_width = terminal_size().map(|(Width(w), _)| w as usize).unwrap_or(80);
-                                apply_text_wrapping(&mut processed_msg, terminal_width);
-                                recv.send(InternalEvent::ChatMessage(processed_msg)).await?;
+                                let _ = recv.send(InternalEvent::ChatMessage(msg)).await;
                             }
                         },
-                        Err(e) => {
-                            debug!("Error deserializing message: {e:?}");
-                            let m = Msg::default().set_content(format!("Error deserializing message: {e:?}"), 0).set_kind(MsgKind::System);
-                            recv.send(InternalEvent::ShowErrorMsg(m.to_string())).await?;
-                        }
+                        Err(e) => warn!("Error deserializing message: {:?}", e),
                     }
                 },
                 SwarmEvent::NewListenAddr { address, .. } => {
                     debug!("Local node is listening on {address}");
-                    let m = Msg::default().set_content(format!("Local node is listening on {address}"), 0).set_kind(MsgKind::System);
-                    recv.send(InternalEvent::ShowInfoMsg(m.to_string())).await?;
                 }
                 _ => {}
             }
