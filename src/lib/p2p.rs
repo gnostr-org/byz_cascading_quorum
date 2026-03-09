@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use terminal_size::{Width, terminal_size};
 use textwrap::{self, Options};
 use tokio::select;
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 use serde_json;
 use chrono::{DateTime, Utc};
 
@@ -102,6 +102,7 @@ impl MessageReassembler {
     }
 
     pub async fn add_chunk_and_reassemble(&self, msg_chunk: Msg) -> Option<Msg> {
+        debug!("Reassembler: Attempting to add chunk and reassemble for msg_chunk: {:?}", msg_chunk);
         if msg_chunk.message_id.is_none()
             || msg_chunk.sequence_num.is_none()
             || msg_chunk.total_chunks.is_none()
@@ -154,6 +155,7 @@ impl MessageReassembler {
             }
             reassembled_msg.content = vec![full_content];
             buffer_guard.remove(&message_id);
+            debug!("Reassembler: Successfully reassembled message for message_id: {}", message_id);
             Some(reassembled_msg)
         } else {
             None
@@ -176,6 +178,7 @@ pub async fn evt_loop(
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
     topic: gossipsub::IdentTopic,
 ) -> Result<()> {
+    debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new());
     
     // Time Consensus State
@@ -214,7 +217,7 @@ pub async fn evt_loop(
                     gossipsub_config,
                 )
                 .expect("Failed to create gossipsub behaviour"),
-                mdns: mdns::tokio::Behaviour::new(
+                mdns: libp2p::mdns::tokio::Behaviour::new(
                     mdns::Config::default(),
                     key.public().to_peer_id(),
                 )?,
@@ -238,6 +241,7 @@ pub async fn evt_loop(
         })
         .build();
 
+    debug!("evt_loop: Swarm built with local PeerId: {}", swarm.local_peer_id());
     swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
     swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
@@ -245,10 +249,11 @@ pub async fn evt_loop(
     loop {
         select! {
             _ = time_sync_interval.tick() => {
-                debug!("TimeSync: Running sync cycle with {} estimates.", peer_estimates.len());
+                debug!("TimeSync: Interval tick. Estimates count: {}", peer_estimates.len());
                 if !peer_estimates.is_empty() {
                     let estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
                     local_node.run_sync_cycle(estimates);
+                    debug!("TimeSync: Local adjustment updated to: {}ms", local_node.adjustment.num_milliseconds());
                     peer_estimates.clear();
                 }
 
@@ -259,41 +264,48 @@ pub async fn evt_loop(
                     adjustment_ms: local_node.adjustment.num_milliseconds(),
                 };
                 
+                trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
                 let mut msg = Msg::default();
                 msg.kind = MsgKind::TimeSync;
                 msg.content = vec![serde_json::to_string(&sync_msg)?];
                 
                 if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
-                    warn!("Failed to publish time sync message: {:?}", e);
+                    warn!("TimeSync: Failed to publish time sync message: {:?}", e);
                 }
             }
             Some(event) = send.recv() => {
                 if let InternalEvent::ChatMessage(m) = event {
+                    debug!("evt_loop: Sending outgoing ChatMessage.");
                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&m)?) {
-                        warn!("Publish error: {:?}", e);
+                        warn!("evt_loop: Publish error: {:?}", e);
                     }
                 }
             }
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, _multiaddr) in list {
+                        debug!("evt_loop: mDNS discovered peer: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                     for (peer_id, _multiaddr) in list {
+                        debug!("evt_loop: mDNS peer expired: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
                 },
-                SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: _peer_id, message_id: _id, message, })) => {
+                SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
+                    trace!("evt_loop: Received Gossipsub message from {} with id {}", peer_id, id);
                     match serde_json::from_slice::<Msg>(&message.data) {
                         Ok(msg) => {
                             if msg.kind == MsgKind::TimeSync {
                                 if let Ok(sync_msg) = serde_json::from_str::<TimeSyncMessage>(&msg.content[0]) {
+                                    debug!("TimeSync: Received from peer {}: {:?}", peer_id, sync_msg);
                                     let s = sync_msg.timestamp;
                                     let r = Utc::now();
                                     let c = sync_msg.timestamp + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
                                     let estimate = estimate_offset_utc(s, r, c);
+                                    trace!("TimeSync: Calculated estimate for peer {}: {:?}", peer_id, estimate);
                                     peer_estimates.insert(sync_msg.peer_id, estimate);
                                 }
                             } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
@@ -304,11 +316,11 @@ pub async fn evt_loop(
                                 let _ = recv.send(InternalEvent::ChatMessage(msg)).await;
                             }
                         },
-                        Err(e) => warn!("Error deserializing message: {:?}", e),
+                        Err(e) => warn!("evt_loop: Error deserializing message: {:?}", e),
                     }
                 },
                 SwarmEvent::NewListenAddr { address, .. } => {
-                    debug!("Local node is listening on {address}");
+                    debug!("evt_loop: Local node is listening on {address}");
                 }
                 _ => {}
             }
