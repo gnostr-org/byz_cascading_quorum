@@ -705,6 +705,7 @@ pub struct NetworkUtc {
 
 impl NetworkUtc {
     pub fn new() -> Self {
+        debug!("Creating new NetworkUtc.");
         let mut nodes = Vec::new();
         for i in 0..10 {
             // Original nodes 0-3 are 1 hour (3600s) ahead
@@ -751,6 +752,7 @@ impl NetworkUtc {
 }
 
 pub fn run_utc_consensus() {
+    debug!("Starting UTC consensus simulation.");
     let mut net = NetworkUtc::new();
     let mut round = 1;
     let mut turnover_started = false;
