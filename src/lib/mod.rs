@@ -521,6 +521,7 @@ pub struct NetworkTime {
 
 impl NetworkTime {
     pub fn new() -> Self {
+        debug!("Creating new NetworkTime.");
         let mut nodes = Vec::new();
         for i in 0..10 {
             let offset = if i < 4 { 1000.0 } else { 0.0 };
