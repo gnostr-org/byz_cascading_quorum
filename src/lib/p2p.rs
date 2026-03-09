@@ -254,8 +254,9 @@ fn print_quorum_status(
     // Print Local Node
     let now = Utc::now();
     let local_addr_str = local_addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
+    let local_peer_id_str = local_peer_id.to_string();
     println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
-        &local_peer_id.to_string()[..8], 
+        format!("{:.6}...{:.6}", &local_peer_id_str[..6], &local_peer_id_str[local_peer_id_str.len()-6..]), 
         now.format("%H:%M:%S"),
         local_node.get_logical_utc().format("%H:%M:%S"),
         format!("{}ms", local_node.adjustment.num_milliseconds()),
@@ -266,8 +267,9 @@ fn print_quorum_status(
     // Print Peers
     for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
         let addr_str = addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
+        let peer_id_str = peer_id.to_string();
         println!("{:<10} | {:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
-            &peer_id[..8], 
+            format!("{:.6}...{:.6}", &peer_id_str[..6], &peer_id_str[peer_id_str.len()-6..]), 
             system_time.format("%H:%M:%S"),
             logical_time.format("%H:%M:%S"),
             format!("{}ms", adj),
