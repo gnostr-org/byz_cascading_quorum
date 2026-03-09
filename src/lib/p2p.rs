@@ -10,8 +10,6 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use tokio::sync::Mutex;
-use terminal_size::{Width, terminal_size};
-use textwrap::{self, Options};
 use tokio::select;
 use tokio_stream::wrappers::LinesStream;
 use tokio::io::{self, AsyncBufReadExt};
@@ -77,6 +75,7 @@ pub struct TimeSyncMessage {
     pub peer_id: String,
     pub timestamp: DateTime<Utc>,
     pub adjustment_ms: i64,
+    pub listen_addrs: Vec<Multiaddr>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -243,30 +242,35 @@ impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
 fn print_quorum_status(
     local_peer_id: &PeerId, 
     local_node: &SyncNodeUtc, 
-    peer_reports: &HashMap<String, (DateTime<Utc>, i64, String)>
+    local_addrs: &[Multiaddr],
+    peer_reports: &HashMap<String, (DateTime<Utc>, i64, String, Vec<Multiaddr>)>
 ) {
     println!("\n--- [QUORUM CONSENSUS REPORT] ---");
-    println!("{:<12} | {:<12} | {:<10} | {:<10}", "PEER ID", "LOGICAL UTC", "OFFSET", "STATE");
-    println!("{:-<50}", "");
+    println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", "PEER ID", "LOGICAL UTC", "OFFSET", "STATE", "MULTIADDRESS");
+    println!("{:-<75}", "");
     
     // Print Local Node
-    println!("{:<12} | {:<12} | {:<10} | {:<10}", 
+    let local_addr_str = local_addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
+    println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
         &local_peer_id.to_string()[..8], 
         local_node.get_logical_utc().format("%H:%M:%S"),
         format!("{}ms", local_node.adjustment.num_milliseconds()),
-        local_node.state
+        local_node.state,
+        local_addr_str
     );
 
     // Print Peers
-    for (peer_id, (time, adj, state)) in peer_reports {
-        println!("{:<12} | {:<12} | {:<10} | {:<10}", 
+    for (peer_id, (time, adj, state, addrs)) in peer_reports {
+        let addr_str = addrs.first().map(|a| a.to_string()).unwrap_or_else(|| "N/A".to_string());
+        println!("{:<12} | {:<12} | {:<10} | {:<10} | {:<20}", 
             &peer_id[..8], 
             time.format("%H:%M:%S"),
             format!("{}ms", adj),
-            state
+            state,
+            addr_str
         );
     }
-    println!("{:-<50}\n", "");
+    println!("{:-<75}\n", "");
 }
 
 pub async fn evt_loop(
@@ -282,7 +286,8 @@ pub async fn evt_loop(
     // Time Consensus State
     let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, initial_offset_sec); 
     let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
-    let mut peer_reports: HashMap<String, (DateTime<Utc>, i64, String)> = HashMap::new();
+    let mut peer_reports: HashMap<String, (DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
+    let mut local_listen_addrs: Vec<Multiaddr> = Vec::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
 
     let keypair = identity::Keypair::generate_ed25519();
@@ -379,7 +384,7 @@ pub async fn evt_loop(
                             }
                         },
                         "TIME" => {
-                            print_quorum_status(&local_peer_id, &local_node, &peer_reports);
+                            print_quorum_status(&local_peer_id, &local_node, &local_listen_addrs, &peer_reports);
                         },
                         "PUB" => {
                             let mut msg = Msg::default();
@@ -401,11 +406,13 @@ pub async fn evt_loop(
                 
                 if estimates.len() >= local_node.n - local_node.f {
                     local_node.run_sync_cycle(estimates);
-                    info!("TimeSync: Local adjustment updated to: {}ms (State: {})", 
+                    info!("TimeSync: Node {} (address: {:?}) updated adjustment to: {}ms (State: {})", 
+                        local_peer_id,
+                        local_listen_addrs.first(),
                         local_node.adjustment.num_milliseconds(),
                         local_node.state
                     );
-                    print_quorum_status(&local_peer_id, &local_node, &peer_reports);
+                    print_quorum_status(&local_peer_id, &local_node, &local_listen_addrs, &peer_reports);
                     peer_estimates.clear();
                 }
 
@@ -414,12 +421,12 @@ pub async fn evt_loop(
                         peer_id: local_peer_id.to_string(),
                         timestamp: Utc::now(),
                         adjustment_ms: local_node.adjustment.num_milliseconds(),
+                        listen_addrs: local_listen_addrs.clone(),
                     };
                     
                     trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
                     let mut msg = Msg::default();
                     msg.kind = MsgKind::TimeSync;
-                    // Add state to content so peers know each other's status
                     msg.content = vec![serde_json::to_string(&sync_msg)?, local_node.state.clone()];
                     
                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
@@ -447,6 +454,7 @@ pub async fn evt_loop(
             event = swarm.select_next_some() => match event {
                 SwarmEvent::NewListenAddr { address, .. } => {
                     info!("Local node is listening on {address}");
+                    local_listen_addrs.push(address.clone());
                     if !address.to_string().contains("127.0.0.1") {
                         if let Some(sender) = addr_sender.take() {
                             let _ = sender.send(address);
@@ -495,7 +503,7 @@ pub async fn evt_loop(
                                     let estimate = estimate_offset_utc(s, r, c);
                                     
                                     peer_estimates.insert(sync_msg.peer_id.clone(), estimate);
-                                    peer_reports.insert(sync_msg.peer_id.clone(), (c, sync_msg.adjustment_ms, peer_state));
+                                    peer_reports.insert(sync_msg.peer_id.clone(), (c, sync_msg.adjustment_ms, peer_state, sync_msg.listen_addrs));
                                 }
                             } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
                                 if let Some(reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {

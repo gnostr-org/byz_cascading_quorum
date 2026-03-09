@@ -9,7 +9,8 @@ async fn test_p2p_time_consensus() {
     // Initialize tracing with a restrictive filter
     let filter = EnvFilter::from_default_env()
         .add_directive(tracing::Level::WARN.into())
-        .add_directive("byz_time=info".parse().unwrap());
+        .add_directive("byz_time=info".parse().unwrap())
+        .add_directive("libp2p_mdns=off".parse().unwrap());
 
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
