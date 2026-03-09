@@ -246,6 +246,7 @@ pub async fn evt_loop(
     recv: tokio::sync::mpsc::Sender<InternalEvent>,
     topic: gossipsub::IdentTopic,
 ) -> Result<()> {
+    debug!("evt_loop: Starting event loop with topic: {}", topic);
     let reassembler = Arc::new(MessageReassembler::new()); // Create reassembler here
 
     let keypair = libp2p::identity::Keypair::generate_ed25519();
