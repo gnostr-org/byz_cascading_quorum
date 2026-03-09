@@ -295,6 +295,7 @@ pub async fn evt_loop(
     let mut peer_reports: HashMap<String, (DateTime<Utc>, DateTime<Utc>, i64, String, Vec<Multiaddr>)> = HashMap::new();
     let mut local_listen_addrs: Vec<Multiaddr> = Vec::new();
     let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
+    let mut discovery_interval = tokio::time::interval(Duration::from_secs(30));
 
     let keypair = identity::Keypair::generate_ed25519();
     let public_key = keypair.public();
@@ -413,6 +414,13 @@ pub async fn evt_loop(
                     }
                 }
             }
+            _ = discovery_interval.tick() => {
+                debug!("Kademlia: Periodic discovery tick. Current peers: {}", connected_peers_count);
+                if let Err(e) = swarm.behaviour_mut().kademlia.bootstrap() {
+                    debug!("Kademlia: Bootstrap error during discovery: {:?}", e);
+                }
+                swarm.behaviour_mut().kademlia.get_closest_peers(local_peer_id);
+            }
             _ = time_sync_interval.tick() => {
                 debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
                 
@@ -477,8 +485,11 @@ pub async fn evt_loop(
                 },
                 SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                     info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
-                    // Add remote address to Kademlia
+                    // Proactively add remote address to Kademlia and trigger bootstrap
                     swarm.behaviour_mut().kademlia.add_address(&peer_id, endpoint.get_remote_address().clone());
+                    if let Err(e) = swarm.behaviour_mut().kademlia.bootstrap() {
+                        debug!("Kademlia: Bootstrap error on new connection: {:?}", e);
+                    }
                 },
                 SwarmEvent::ConnectionClosed { peer_id, .. } => {
                     info!("Connection closed with {}", peer_id);
