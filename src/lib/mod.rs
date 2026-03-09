@@ -474,6 +474,7 @@ pub struct SyncNodeTime {
 
 impl SyncNodeTime {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_adj: f64) -> Self {
+        debug!("Creating SyncNodeTime id: {}, n: {}, f: {}, way_off: {}, initial_adj: {}", id, n, f, way_off, initial_adj);
         Self {
             id,
             n,
