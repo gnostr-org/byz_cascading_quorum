@@ -97,6 +97,7 @@ impl MessageReassembler {
     /// Returns Some(complete_message) if reassembly is successful, None
     /// otherwise.
     pub async fn add_chunk_and_reassemble(&self, msg_chunk: Msg) -> Option<Msg> {
+        debug!("Reassembler: Attempting to add chunk and reassemble for msg_chunk: {:?}", msg_chunk);
         if msg_chunk.message_id.is_none()
             || msg_chunk.sequence_num.is_none()
             || msg_chunk.total_chunks.is_none()
