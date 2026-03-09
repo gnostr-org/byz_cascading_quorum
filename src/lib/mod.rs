@@ -491,6 +491,7 @@ impl SyncNodeTime {
     }
 
     pub fn run_sync_cycle(&mut self, estimates: Vec<EstimationTime>) {
+        debug!("NodeTime {} running sync cycle with {} estimates.", self.id, estimates.len());
         let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
         let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
 
