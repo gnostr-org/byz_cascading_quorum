@@ -405,12 +405,12 @@ fn print_quorum_status(
                     }
                     _ => { // Default/Initial state (e.g., "⚪️" or others)
                         println!(
-                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<4} | {:<20}",
+                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<5} | {:<20}",
                             format!("{}", short_peer_id), // Peer ID
                             now.format("%H:%M:%S%.3f"), // System UTC
 							logical_time.format("%H:%M:%S%.3f"),
 							format!("{}", adj), // DRIFT
-                            state, // State
+							format!("{}*", state), // STATE
                             addr_str // Multiaddress
                         );
                     }
