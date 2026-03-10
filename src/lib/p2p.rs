@@ -380,7 +380,7 @@ fn print_quorum_status(
 
         if adj.clone() >= 0 {
             println!(
-                "{:<12} | {:<12} | {:<12} |  { :<9} | { :<5} | {:<20}",
+                "{:<12} | {:<12} | {:<12} |  { :<9} | {:<5} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
@@ -390,7 +390,7 @@ fn print_quorum_status(
             );
         } else {
             println!(
-                "{:<12} | {:<12} | {:<12} | {:<10} | { :<5} | {:<20}",
+                "{:<12} | {:<12} | {:<12} | {:<10} | {:<4} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
