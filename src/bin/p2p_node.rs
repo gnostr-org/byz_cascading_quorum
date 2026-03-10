@@ -1,0 +1,20 @@
+use anyhow::Result;
+use tracing::debug;
+use byz_time::p2p::evt_loop;
+use libp2p::gossipsub::IdentTopic;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    debug!("p2p_node: Starting p2p node.");
+    // Dummy channels for compilation
+    let (_send_tx, send_rx) = tokio::sync::mpsc::channel(100);
+    let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
+
+    // Dummy topic for compilation
+    let topic = IdentTopic::new("dummy-topic");
+
+    // Pass None for addr_sender as this is a standalone node
+    evt_loop(send_rx, recv_tx, topic, None)
+        .await
+        .map_err(anyhow::Error::into)
+}

@@ -1,17 +1,73 @@
 [package]
-name = "byz_cascading_quorum"
+name = "byz_time"
 version = "0.1.0"
 edition = "2024"
-default-run = "byz_cascading_quorum"
+default-run = "byz_time"
 
-[dependencies]
-chrono = "0.4.44"
-sha2 = "0.10.9"
+[lib]
+name = "byz_time"
+path = "src/lib/mod.rs"
 
 [[bin]]
 name = "byz_cascading_quorum"
 path = "src/bin/byz_cascading_quorum.rs"
 
 [[bin]]
+name = "byz_cascading_quorum_v2"
+path = "src/bin/byz_cascading_quorum_v2.rs"
+
+[[bin]]
+name = "byz_time"
+path = "src/bin/byz_time.rs"
+
+[[bin]]
 name = "utc_consensus"
 path = "src/bin/utc_consensus.rs"
+
+[[bin]]
+name = "p2p_node"
+path = "src/bin/p2p_node.rs"
+
+[dependencies]
+anyhow = "1.0.86"
+chrono = { version = "0.4.44", features = ["serde"] }
+libp2p = { version = "0.54.1", features = [
+  "async-std",
+  "autonat",
+  "cbor",
+  "dcutr",
+  "dns",
+  "gossipsub",
+  "identify",
+  "kad",
+  "macros",
+  "mdns",
+  "noise",
+  "ping",
+  "quic",
+  "relay",
+  "rendezvous",
+  "request-response",
+  "tcp",
+  "tokio",
+  "yamux",
+  "websocket"
+] }
+multistream-select = "0.13.0"
+## libp2p-identity = "0.2.10"
+
+num-bigint = "0.4.6"
+parking_lot = "0.12.2"
+rand_0_8_5 = { package = "rand", version = "0.8.5" }
+rand_0_9_2 = { package = "rand", version = "0.9.2" }
+serde = { version = "1.0.198", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+terminal_size = "0.3.0"
+textwrap = "0.16.0"
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+ureq = "2.9.2"
+

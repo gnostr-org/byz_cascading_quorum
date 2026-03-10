@@ -1,0 +1,498 @@
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use anyhow::{Result, anyhow};
+use libp2p::futures::stream::StreamExt;
+use libp2p::{
+    StreamProtocol, gossipsub, identify, kad, mdns, noise, ping,
+    request_response::{self, ProtocolSupport},
+    swarm::{NetworkBehaviour, SwarmEvent},
+    tcp, yamux, identity,
+    Multiaddr, PeerId,
+};
+use tokio::sync::Mutex;
+use terminal_size::{Width, terminal_size};
+use textwrap::{self, Options};
+use tokio::select;
+use tokio_stream::wrappers::LinesStream;
+use tokio::io::{self, AsyncBufReadExt};
+use tracing::{debug, trace, warn, info};
+use serde_json;
+use chrono::{DateTime, Utc};
+
+// Use types from the main library
+use crate::{SyncNodeUtc, EstimationUtc, estimate_offset_utc};
+
+// Placeholder for application-specific types
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct Msg {
+    pub from: Option<String>,
+    pub kind: MsgKind,
+    pub commit_id: Option<String>,
+    pub nostr_event: Option<String>,
+    pub message_id: Option<String>,
+    pub sequence_num: Option<usize>,
+    pub total_chunks: Option<usize>,
+    pub content: Vec<String>,
+}
+
+impl Msg {
+    pub fn set_content(mut self, content: String, _index: usize) -> Self {
+        self.content.push(content);
+        self
+    }
+    pub fn set_kind(mut self, kind: MsgKind) -> Self {
+        self.kind = kind;
+        self
+    }
+}
+
+impl std::fmt::Display for Msg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.content.is_empty() {
+            write!(f, "")
+        } else {
+            write!(f, "{}", self.content[0])
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum MsgKind {
+    Chat,
+    OneShot,
+    GitDiff,
+    System,
+    NostrEvent,
+    TimeSync,
+}
+
+impl Default for MsgKind {
+    fn default() -> Self {
+        MsgKind::Chat
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TimeSyncMessage {
+    pub peer_id: String,
+    pub timestamp: DateTime<Utc>,
+    pub adjustment_ms: i64,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FileRequest(String);
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FileResponse(Vec<u8>);
+
+#[derive(Debug, Clone)]
+pub enum InternalEvent {
+    ChatMessage(Msg),
+    Dial(Multiaddr),
+    ShowErrorMsg(String),
+    ShowInfoMsg(String),
+}
+
+pub const IPFS_PROTO_NAME: StreamProtocol = StreamProtocol::new("/ipfs/kad/1.0.0");
+
+pub struct MessageReassembler {
+    buffer: Mutex<HashMap<String, (usize, usize, Vec<Option<Msg>>)>>,
+}
+
+impl MessageReassembler {
+    pub fn new() -> Self {
+        MessageReassembler {
+            buffer: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub async fn add_chunk_and_reassemble(&self, msg_chunk: Msg) -> Option<Msg> {
+        debug!("Reassembler: Attempting to add chunk and reassemble for msg_chunk: {:?}", msg_chunk);
+        if msg_chunk.message_id.is_none()
+            || msg_chunk.sequence_num.is_none()
+            || msg_chunk.total_chunks.is_none()
+        {
+            return None;
+        }
+
+        let message_id = msg_chunk.message_id.clone().unwrap();
+        let sequence_num = msg_chunk.sequence_num.unwrap();
+        let total_chunks = msg_chunk.total_chunks.unwrap();
+
+        let mut buffer_guard = self.buffer.lock().await;
+
+        let (buffered_total_chunks, received_count, chunks) =
+            buffer_guard.entry(message_id.clone()).or_insert_with(|| {
+                (total_chunks, 0, vec![None; total_chunks])
+            });
+
+        if *buffered_total_chunks != total_chunks {
+            buffer_guard.remove(&message_id);
+            return None;
+        }
+
+        if sequence_num < total_chunks {
+            if chunks[sequence_num].is_none() {
+                chunks[sequence_num] = Some(msg_chunk.clone());
+                *received_count += 1;
+            }
+        } else {
+            return None;
+        }
+
+        if *received_count == total_chunks {
+            let mut full_content = String::new();
+            let mut reassembled_msg = Msg::default();
+
+            for (i, chunk_option) in chunks.iter().enumerate() {
+                if let Some(chunk) = chunk_option {
+                    if i == 0 {
+                        reassembled_msg.from = chunk.from.clone();
+                        reassembled_msg.kind = chunk.kind;
+                        reassembled_msg.commit_id = chunk.commit_id.clone();
+                        reassembled_msg.nostr_event = chunk.nostr_event.clone();
+                        reassembled_msg.message_id = None;
+                        reassembled_msg.sequence_num = None;
+                        reassembled_msg.total_chunks = None;
+                    }
+                    full_content.push_str(&chunk.content[0]);
+                }
+            }
+            reassembled_msg.content = vec![full_content];
+            buffer_guard.remove(&message_id);
+            debug!("Reassembler: Successfully reassembled message for message_id: {}", message_id);
+            Some(reassembled_msg)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "MyBehaviourEvent")]
+pub struct MyBehaviour {
+    pub gossipsub: gossipsub::Behaviour,
+    pub mdns: mdns::tokio::Behaviour,
+    pub identify: identify::Behaviour,
+    pub kademlia: kad::Behaviour<kad::store::MemoryStore>,
+    pub ping: ping::Behaviour,
+    pub request_response: request_response::cbor::Behaviour<FileRequest, FileResponse>,
+    pub dcutr: libp2p::dcutr::Behaviour,
+    pub relay: libp2p::relay::client::Behaviour,
+    pub autonat: libp2p::autonat::Behaviour,
+}
+
+#[derive(Debug)]
+pub enum MyBehaviourEvent {
+    Gossipsub(gossipsub::Event),
+    Mdns(mdns::Event),
+    Identify(identify::Event),
+    Kademlia(kad::Event),
+    Ping(ping::Event),
+    RequestResponse(request_response::Event<FileRequest, FileResponse>),
+    Dcutr(libp2p::dcutr::Event),
+    Relay(libp2p::relay::client::Event),
+    Autonat(libp2p::autonat::Event),
+}
+
+impl From<gossipsub::Event> for MyBehaviourEvent {
+    fn from(event: gossipsub::Event) -> Self {
+        MyBehaviourEvent::Gossipsub(event)
+    }
+}
+
+impl From<mdns::Event> for MyBehaviourEvent {
+    fn from(event: mdns::Event) -> Self {
+        MyBehaviourEvent::Mdns(event)
+    }
+}
+
+impl From<identify::Event> for MyBehaviourEvent {
+    fn from(event: identify::Event) -> Self {
+        MyBehaviourEvent::Identify(event)
+    }
+}
+
+impl From<kad::Event> for MyBehaviourEvent {
+    fn from(event: kad::Event) -> Self {
+        MyBehaviourEvent::Kademlia(event)
+    }
+}
+
+impl From<ping::Event> for MyBehaviourEvent {
+    fn from(event: ping::Event) -> Self {
+        MyBehaviourEvent::Ping(event)
+    }
+}
+
+impl From<request_response::Event<FileRequest, FileResponse>> for MyBehaviourEvent {
+    fn from(event: request_response::Event<FileRequest, FileResponse>) -> Self {
+        MyBehaviourEvent::RequestResponse(event)
+    }
+}
+
+impl From<libp2p::dcutr::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::dcutr::Event) -> Self {
+        MyBehaviourEvent::Dcutr(event)
+    }
+}
+
+impl From<libp2p::relay::client::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::relay::client::Event) -> Self {
+        MyBehaviourEvent::Relay(event)
+    }
+}
+
+impl From<libp2p::autonat::Event> for MyBehaviourEvent {
+    fn from(event: libp2p::autonat::Event) -> Self {
+        MyBehaviourEvent::Autonat(event)
+    }
+}
+
+pub async fn evt_loop(
+    mut send: tokio::sync::mpsc::Receiver<InternalEvent>,
+    recv: tokio::sync::mpsc::Sender<InternalEvent>,
+    topic: gossipsub::IdentTopic,
+    mut addr_sender: Option<tokio::sync::oneshot::Sender<Multiaddr>>,
+) -> Result<()> {
+    debug!("evt_loop: Starting event loop with topic: {}", topic);
+    let reassembler = Arc::new(MessageReassembler::new());
+    
+    // Time Consensus State
+    let mut local_node = SyncNodeUtc::new(0, 1, 0, 20.0, 0); 
+    let mut peer_estimates: HashMap<String, EstimationUtc> = HashMap::new();
+    let mut time_sync_interval = tokio::time::interval(Duration::from_secs(10));
+
+    let keypair = identity::Keypair::generate_ed25519();
+    let public_key = keypair.public();
+    let local_peer_id = public_key.to_peer_id();
+    warn!("Local PeerId: {}", local_peer_id);
+
+    let gossipsub_config = gossipsub::ConfigBuilder::default()
+        .heartbeat_interval(Duration::from_secs(10))
+        .validation_mode(gossipsub::ValidationMode::Strict)
+        .build()
+        .map_err(|msg| anyhow!(msg))?;
+
+    let (relay_transport, relay_client) = libp2p::relay::client::new(local_peer_id);
+
+    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair.clone())
+        .with_tokio()
+        .with_tcp(
+            tcp::Config::default(),
+            noise::Config::new,
+            yamux::Config::default,
+        )?
+        .with_quic()
+        .with_dns()?
+        .with_behaviour(|key| {
+            let mut kad_config = kad::Config::new(IPFS_PROTO_NAME);
+            kad_config.set_query_timeout(Duration::from_secs(120));
+            let kad_store = kad::store::MemoryStore::new(key.public().to_peer_id());
+
+            Ok(MyBehaviour {
+                gossipsub: gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub_config,
+                )
+                .expect("Failed to create gossipsub behaviour"),
+                mdns: libp2p::mdns::tokio::Behaviour::new(
+                    mdns::Config::default(),
+                    key.public().to_peer_id(),
+                )?,
+                identify: identify::Behaviour::new(identify::Config::new(
+                    "/ipfs/id/1.0.0".to_string(),
+                    key.public(),
+                )),
+                kademlia: kad::Behaviour::with_config(key.public().to_peer_id(), kad_store, kad_config),
+                ping: ping::Behaviour::new(ping::Config::new()),
+                request_response: request_response::cbor::Behaviour::new(
+                    [(
+                        StreamProtocol::new("/file-exchange/1"),
+                        ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+                dcutr: libp2p::dcutr::Behaviour::new(local_peer_id),
+                relay: relay_client,
+                autonat: libp2p::autonat::Behaviour::new(local_peer_id, libp2p::autonat::Config::default()),
+            })
+        })?
+        .with_swarm_config(|c: libp2p::swarm::Config| {
+            c.with_idle_connection_timeout(Duration::from_secs(60))
+        })
+        .build();
+
+    debug!("evt_loop: Swarm built with local PeerId: {}", swarm.local_peer_id());
+    swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+    swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+
+    let mut stdin = LinesStream::new(io::BufReader::new(io::stdin()).lines());
+
+    loop {
+        let connected_peers_count = swarm.connected_peers().count();
+        local_node.n = connected_peers_count + 1;
+        local_node.f = connected_peers_count / 3;
+
+        select! {
+            line = stdin.next() => {
+                if let Some(Ok(line)) = line {
+                    let mut parts = line.splitn(2, ' ');
+                    let command = parts.next().unwrap_or("");
+                    let arg = parts.next().unwrap_or("");
+
+                    match command {
+                        "DIAL" => {
+                            if let Ok(addr) = arg.parse::<libp2p::Multiaddr>() {
+                                info!("Manual dial requested: {}", addr);
+                                if let Err(e) = swarm.dial(addr) {
+                                    warn!("Failed to dial {}: {:?}", arg, e);
+                                }
+                            }
+                        },
+                        "BOOTSTRAP" => {
+                            info!("Kademlia: Manual bootstrap triggered.");
+                            if let Err(e) = swarm.behaviour_mut().kademlia.bootstrap() {
+                                warn!("Kademlia: Bootstrap error: {:?}", e);
+                            }
+                        },
+                        "TIME" => {
+                            info!("Local Logical UTC: {}", local_node.get_logical_utc().format("%H:%M:%S%.3f"));
+                            info!("Local Adjustment: {}ms", local_node.adjustment.num_milliseconds());
+                            info!("Status: {}", local_node.state);
+                            info!("Connected Peers: {}", connected_peers_count);
+                            info!("Byzantine Parameters: n={}, f={}", local_node.n, local_node.f);
+                        },
+                        "PUB" => {
+                            let mut msg = Msg::default();
+                            msg.kind = MsgKind::Chat;
+                            msg.content = vec![arg.to_string()];
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
+                                warn!("Failed to publish message: {:?}", e);
+                            }
+                        },
+                        _ => debug!("Unknown command: {}", command),
+                    }
+                }
+            }
+            _ = time_sync_interval.tick() => {
+                debug!("TimeSync: Interval tick. Estimates count: {}. Connected peers: {}", peer_estimates.len(), connected_peers_count);
+                
+                let mut estimates: Vec<EstimationUtc> = peer_estimates.values().cloned().collect();
+                estimates.push(EstimationUtc { d: 0.0, a: 0.0 });
+                
+                if estimates.len() >= local_node.n - local_node.f {
+                    local_node.run_sync_cycle(estimates);
+                    info!("TimeSync: Local adjustment updated to: {}ms (State: {})", 
+                        local_node.adjustment.num_milliseconds(),
+                        local_node.state
+                    );
+                    peer_estimates.clear();
+                } else {
+                    debug!("TimeSync: Not enough estimates yet ({}/{} required)", 
+                        estimates.len(), 
+                        local_node.n - local_node.f
+                    );
+                }
+
+                if connected_peers_count > 0 {
+                    let sync_msg = TimeSyncMessage {
+                        peer_id: local_peer_id.to_string(),
+                        timestamp: Utc::now(),
+                        adjustment_ms: local_node.adjustment.num_milliseconds(),
+                    };
+                    
+                    trace!("TimeSync: Broadcasting local time: {:?}", sync_msg);
+                    let mut msg = Msg::default();
+                    msg.kind = MsgKind::TimeSync;
+                    msg.content = vec![serde_json::to_string(&sync_msg)?];
+                    
+                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&msg)?) {
+                        warn!("TimeSync: Failed to publish time sync message: {:?}", e);
+                    }
+                }
+            }
+            Some(event) = send.recv() => {
+                match event {
+                    InternalEvent::ChatMessage(m) => {
+                        debug!("evt_loop: Sending outgoing ChatMessage.");
+                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), serde_json::to_vec(&m)?) {
+                            warn!("evt_loop: Publish error: {:?}", e);
+                        }
+                    },
+                    InternalEvent::Dial(addr) => {
+                        info!("Internal dial requested: {}", addr);
+                        if let Err(e) = swarm.dial(addr) {
+                            warn!("evt_loop: Internal dial error: {:?}", e);
+                        }
+                    },
+                    _ => {}
+                }
+            }
+            event = swarm.select_next_some() => match event {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    info!("Local node is listening on {address}");
+                    if !address.to_string().contains("127.0.0.1") {
+                        if let Some(sender) = addr_sender.take() {
+                            let _ = sender.send(address);
+                        }
+                    }
+                },
+                SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                    info!("Connection established with {} at {:?}", peer_id, endpoint.get_remote_address());
+                },
+                SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                    info!("Connection closed with {}", peer_id);
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                    for (peer_id, multiaddr) in list {
+                        debug!("mDNS discovered peer: {}", peer_id);
+                        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
+                    }
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
+                    for (peer_id, _multiaddr) in list {
+                        debug!("mDNS peer expired: {}", peer_id);
+                        swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                    }
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Identify(identify::Event::Received { peer_id, info, .. })) => {
+                    debug!("Identify: Received info from {}: {:?}", peer_id, info);
+                    for addr in info.listen_addrs {
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                    }
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Autonat(libp2p::autonat::Event::StatusChanged { new, .. })) => {
+                    info!("Autonat: Status changed to: {:?}", new);
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message { propagation_source: peer_id, message_id: id, message, })) => {
+                    trace!("Received Gossipsub message from {} with id {}", peer_id, id);
+                    match serde_json::from_slice::<Msg>(&message.data) {
+                        Ok(msg) => {
+                            if msg.kind == MsgKind::TimeSync {
+                                if let Ok(sync_msg) = serde_json::from_str::<TimeSyncMessage>(&msg.content[0]) {
+                                    debug!("TimeSync: Received from peer {}: {:?}", peer_id, sync_msg);
+                                    let s = sync_msg.timestamp;
+                                    let r = Utc::now();
+                                    let c = sync_msg.timestamp + chrono::Duration::milliseconds(sync_msg.adjustment_ms);
+                                    let estimate = estimate_offset_utc(s, r, c);
+                                    trace!("TimeSync: Calculated estimate for peer {}: {:?}", peer_id, estimate);
+                                    peer_estimates.insert(sync_msg.peer_id, estimate);
+                                }
+                            } else if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
+                                if let Some(reassembled_msg) = reassembler.add_chunk_and_reassemble(msg).await {
+                                    let _ = recv.send(InternalEvent::ChatMessage(reassembled_msg)).await;
+                                }
+                            } else {
+                                let _ = recv.send(InternalEvent::ChatMessage(msg)).await;
+                            }
+                        },
+                        Err(e) => warn!("evt_loop: Error deserializing message: {:?}", e),
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+}
