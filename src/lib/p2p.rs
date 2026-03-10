@@ -296,7 +296,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                     state if state == "🟡" => { // Uncertain/Transition state
@@ -307,7 +307,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                     _ => { // Default/Initial state (e.g., "⚪️" or others)
@@ -318,7 +318,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                 }
@@ -333,7 +333,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                     state if state == "🟡" => { // Uncertain/Transition state
@@ -344,7 +344,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                     _ => { // Default/Initial state (e.g., "⚪️" or others)
@@ -355,7 +355,7 @@ fn print_quorum_status(
                             local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
                             format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
                             local_node.state, // State
-                            local_addr_str // Multiaddress
+                            format!("{} STAR", local_addr_str) // Multiaddress
                         );
                     }
                 }
@@ -377,28 +377,85 @@ fn print_quorum_status(
             &peer_id_str[..9],
             &peer_id_str[peer_id_str.len() - 8..]
         );
+        //if count == 0 {
+            if adj.clone() >= 0 {
+				//why + showing? 
+                match &state {
+                    state if *state == "🟢" => { // Synchronized state
+                        println!(
+                "{:<12} | {:<12} | {:<12} |  { :<9} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID with star
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                    state if *state == "🟡" => { // Uncertain/Transition state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                    _ => { // Default/Initial state (e.g., "⚪️" or others)
+                        println!(
+                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                }
+            } else {
+			// local node negative drift case
+                match &local_node.state {
+                    state if state == "🟢" => { // Synchronized state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID with star
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                    state if state == "🟡" => { // Uncertain/Transition state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                    _ => { // Default/Initial state (e.g., "⚪️" or others)
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_peer_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+							logical_time.format("%H:%M:%S%.3f"),
+							format!("{}", adj), // DRIFT
+                            state, // State
+                            addr_str // Multiaddress
+                        );
+                    }
+                }
+            }
+          //  count = 1;
+        //}
 
-        if adj.clone() >= 0 {
-            println!(
-                "{:<12} | {:<12} | {:<12} |  { :<9} | {:<5} | {:<20}",
-                short_peer_id,
-                system_time.format("%H:%M:%S%.3f"),
-                logical_time.format("%H:%M:%S%.3f"),
-                format!("{}", adj), // DRIFT
-                state, // STATE 
-                addr_str
-            );
-        } else {
-            println!(
-                "{:<12} | {:<12} | {:<12} | {:<10} | {:<4} | {:<20}",
-                short_peer_id,
-                system_time.format("%H:%M:%S%.3f"),
-                logical_time.format("%H:%M:%S%.3f"),
-                format!("{}", adj), // DRIFT
-                state, // STATE
-                addr_str
-            );
-        };
     }
     println!("{:-<103}\n", "");
 }
