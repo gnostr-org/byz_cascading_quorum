@@ -89,7 +89,10 @@ pub struct SyncNode {
 
 impl SyncNode {
     pub fn new(id: usize, offset_sec: i64) -> Self {
-        debug!("Creating SyncNode with id: {} and offset: {}s", id, offset_sec);
+        debug!(
+            "Creating SyncNode with id: {} and offset: {}s",
+            id, offset_sec
+        );
         Self {
             id,
             adjustment: Duration::seconds(offset_sec),
@@ -116,11 +119,7 @@ impl SyncNode {
     ) {
         debug!(
             "Node {} updating stage. Current: {:?}, Spread: {}, SameMinute: {}, GlobalSuccess: {}",
-            self.id,
-            self.stage,
-            spread,
-            all_same_minute,
-            global_success_reached
+            self.id, self.stage, spread, all_same_minute, global_success_reached
         );
         match self.stage {
             SyncStage::Hour => {
@@ -170,7 +169,10 @@ impl SyncNode {
     }
 
     pub fn grind_nonce(&mut self, target: &str) {
-        debug!("Node {} starting nonce grind for target: {}", self.id, target);
+        debug!(
+            "Node {} starting nonce grind for target: {}",
+            self.id, target
+        );
         let time = self.get_logical_utc();
         let minute = time.minute();
         if self.nonce == 0 {
@@ -203,7 +205,10 @@ impl SyncNode {
     }
 
     pub fn mine_sha256(&mut self, target: &str) {
-        debug!("Node {} starting SHA-256 mining for target: {}", self.id, target);
+        debug!(
+            "Node {} starting SHA-256 mining for target: {}",
+            self.id, target
+        );
         let mut bytes = [0u8; 64];
         self.rng_v9.fill(&mut bytes);
         let candidate = BigUint::from_bytes_be(&bytes);
@@ -474,7 +479,10 @@ pub struct SyncNodeTime {
 
 impl SyncNodeTime {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_adj: f64) -> Self {
-        debug!("Creating SyncNodeTime id: {}, n: {}, f: {}, way_off: {}, initial_adj: {}", id, n, f, way_off, initial_adj);
+        debug!(
+            "Creating SyncNodeTime id: {}, n: {}, f: {}, way_off: {}, initial_adj: {}",
+            id, n, f, way_off, initial_adj
+        );
         Self {
             id,
             n,
@@ -491,7 +499,11 @@ impl SyncNodeTime {
     }
 
     pub fn run_sync_cycle(&mut self, estimates: Vec<EstimationTime>) {
-        debug!("NodeTime {} running sync cycle with {} estimates.", self.id, estimates.len());
+        debug!(
+            "NodeTime {} running sync cycle with {} estimates.",
+            self.id,
+            estimates.len()
+        );
         let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
         let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
 
@@ -502,10 +514,10 @@ impl SyncNodeTime {
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adjustment = if m > -self.way_off && m_large < self.way_off {
-            self.state = String::from("Synced");
+            self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
-            self.state = String::from("RECOVERING");
+            self.state = String::from("🟡");
             (m + m_large) / 2.0
         };
 
@@ -597,7 +609,7 @@ pub fn run_byz_time() {
                 net.nodes.retain(|n| n.id != id);
 
                 let new_id = net.next_id;
-                println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
+                println!(">>> ADDING NEWCOMER Node {:03} (🟡) <<<", new_id);
                 net.nodes
                     .push(SyncNodeTime::new(new_id, 10, 3, 20.0, 800.0));
                 net.next_id += 1;
@@ -612,7 +624,7 @@ pub fn run_byz_time() {
         }
 
         // Phase 3: Check for final sync of all newcomers
-        let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
+        let all_synced = net.nodes.iter().all(|n| n.state == "🟢");
         if turnover_complete && all_synced && spread < 1.0 {
             println!(
                 "
@@ -635,7 +647,10 @@ pub struct EstimationUtc {
 }
 
 pub fn estimate_offset_utc(s: DateTime<Utc>, r: DateTime<Utc>, c: DateTime<Utc>) -> EstimationUtc {
-    trace!("Estimating UTC offset for s: {:?}, r: {:?}, c: {:?}", s, r, c);
+    trace!(
+        "Estimating UTC offset for s: {:?}, r: {:?}, c: {:?}",
+        s, r, c
+    );
     // d = c - (r + s) / 2
     let send_receive_avg_ms = (r.timestamp_millis() + s.timestamp_millis()) / 2;
     let diff_ms = c.timestamp_millis() - send_receive_avg_ms;
@@ -657,14 +672,17 @@ pub struct SyncNodeUtc {
 
 impl SyncNodeUtc {
     pub fn new(id: usize, n: usize, f: usize, way_off: f64, initial_offset_sec: i64) -> Self {
-        debug!("Creating SyncNodeUtc id: {}, n: {}, f: {}, way_off: {}, initial_offset_sec: {}", id, n, f, way_off, initial_offset_sec);
+        debug!(
+            "Creating SyncNodeUtc id: {}, n: {}, f: {}, way_off: {}, initial_offset_sec: {}",
+            id, n, f, way_off, initial_offset_sec
+        );
         Self {
             id,
             n,
             f,
             way_off,
             adjustment: Duration::seconds(initial_offset_sec),
-            state: String::from("Init"),
+            state: String::from("⚪️"),
         }
     }
 
@@ -685,15 +703,15 @@ impl SyncNodeUtc {
         let m_large = d_unders[self.n - 1 - self.f];
 
         let raw_adj_sec = if m > -self.way_off && m_large < self.way_off {
-            self.state = String::from("Synced");
+            self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
-            self.state = String::from("RECOVERING");
+            self.state = String::from("🟡");
             (m + m_large) / 2.0
         };
 
-        // Apply 40% of the correction (halving-style convergence)
-        let apply_ms = (raw_adj_sec * 400.0) as i64;
+        // Apply 80% of the correction (halving-style convergence)
+        let apply_ms = (raw_adj_sec * 800.0) as i64;
         self.adjustment = self.adjustment + Duration::milliseconds(apply_ms);
     }
 }
@@ -779,7 +797,7 @@ pub fn run_utc_consensus() {
 
                 let new_id = net.next_id;
                 // Newcomer starts 2 hours (7200s) behind
-                println!(">>> ADDING NEWCOMER Node {:03} (RECOVERING) <<<", new_id);
+                println!(">>> ADDING NEWCOMER Node {:03} (🟡) <<<", new_id);
                 net.nodes.push(SyncNodeUtc::new(new_id, 10, 3, 20.0, -7200));
                 net.next_id += 1;
             } else {
@@ -792,7 +810,7 @@ pub fn run_utc_consensus() {
             }
         }
 
-        let all_synced = net.nodes.iter().all(|n| n.state == "Synced");
+        let all_synced = net.nodes.iter().all(|n| n.state == "🟢");
         if turnover_complete && all_synced && spread_sec < 1.0 {
             println!(
                 "
