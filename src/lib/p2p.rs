@@ -265,11 +265,11 @@ fn print_quorum_status(
     );
     println!(
         "{:<18} | {:<12} | {:<12} | {:<10} | {:<6} | {:<20}",
-        "PEER ID", "SYSTEM UTC", "LOGICAL UTC", "DRIFT (ms)", "STATE", "MULTIADDRESS"
+        "PEER ID:<18", "SYSTEM UTC", "LOGICAL UTC", "DRIFT (ms)", "STATE", "MULTIADDRESS"
     );
     println!("{:-<103}", "");
 
-    // Print Local Node (Self)
+    // LOCAL NODE CASE
     let local_addr_str = local_addrs
         .first()
         .map(|a| a.to_string())
@@ -281,15 +281,89 @@ fn print_quorum_status(
         &local_peer_id_str[local_peer_id_str.len() - 8..]
     );
 
-    println!(
-        "{:<12} | {:<12} | {:<12} | {:<10} | {:<12} | {:<20}",
-        format!("{}", short_id),
-        now.format("%H:%M:%S%.3f"),
-        local_node.get_logical_utc().format("%H:%M:%S%.3f"),
-        format!("{}ms", local_node.adjustment.num_milliseconds()),
-        local_node.state,
-        local_addr_str
-    );
+    //result is the first node in table
+    let mut count = 0;
+    for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
+        if count == 0 {
+            if adj.clone() >= 0 {
+				//why + showing? 
+                match &local_node.state {
+                    state if state == "🟢" => { // Synchronized state
+                        println!(
+                "{:<12} | {:<12} | {:<12} |  { :<9} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID with star
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                    state if state == "🟡" => { // Uncertain/Transition state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                    _ => { // Default/Initial state (e.g., "⚪️" or others)
+                        println!(
+                "{:<12} | {:<12} | {:<12} | +{ :<9} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                }
+            } else {
+			// local node negative drift case
+                match &local_node.state {
+                    state if state == "🟢" => { // Synchronized state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID with star
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                    state if state == "🟡" => { // Uncertain/Transition state
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                    _ => { // Default/Initial state (e.g., "⚪️" or others)
+                        println!(
+                "{:<12} | {:<12} | {:<12} | { :<10} | { :<4} | {:<20}",
+                            format!("{}", short_id), // Peer ID
+                            now.format("%H:%M:%S%.3f"), // System UTC
+                            local_node.get_logical_utc().format("%H:%M:%S%.3f"), // Logical UTC
+                            format!("{}", local_node.adjustment.num_milliseconds()), // Drift value
+                            local_node.state, // State
+                            local_addr_str // Multiaddress
+                        );
+                    }
+                }
+            }
+            count = 1;
+        }
+    }
+    // END LOCAL NODE CASE
 
     // Print Peers
     for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
@@ -306,21 +380,21 @@ fn print_quorum_status(
 
         if adj.clone() >= 0 {
             println!(
-                "{:<12} | {:<12} | {:<12} |  { :<9} | { :<4} | {:<20}",
+                "{:<12} | {:<12} | {:<12} |  { :<9} | { :<5} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
-                format!("{:5>}", adj), // DRIFT
+                format!("{}", adj), // DRIFT
                 state, // STATE 
                 addr_str
             );
         } else {
             println!(
-                "{:<12} | {:<12} | {:<12} | {:<10} | { :<4} | {:<20}",
+                "{:<12} | {:<12} | {:<12} | {:<10} | { :<5} | {:<20}",
                 short_peer_id,
                 system_time.format("%H:%M:%S%.3f"),
                 logical_time.format("%H:%M:%S%.3f"),
-                format!("{ :5> }", adj), // DRIFT
+                format!("{}", adj), // DRIFT
                 state, // STATE
                 addr_str
             );
