@@ -6,6 +6,7 @@ use rand_0_8_5::{Rng as RngLegacy, thread_rng as rng_legacy};
 use rand_0_9_2::{Rng as RngLatest, rng as rng_latest};
 use sha2::{Digest, Sha256};
 use tracing::{debug, trace};
+use log::info;
 
 pub use crate::p2p::evt_loop;
 
@@ -237,17 +238,17 @@ pub fn get_median_diff(timestamps: &[i64], current: i64) -> i64 {
 }
 
 pub fn print_report_header(round: i32, nodes_count: usize, spread: i64) {
-    println!(
+    info!(
         "
 ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
         round, nodes_count, spread
     );
-    println!("{:-<85}", "");
-    println!(
+    info!("{:-<85}", "");
+    info!(
         "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<64}",
         "ID", "STAGE", "LOGICAL UTC", "NONCE", "STATUS", "LAST HASH (TRUNC)"
     );
-    println!("{:-<85}", "");
+    info!("{:-<85}", "");
 }
 
 pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
