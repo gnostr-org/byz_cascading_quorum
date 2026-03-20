@@ -217,17 +217,14 @@ impl SyncNode {
             let mut hasher = Sha256::new();
             hasher.update(input.as_bytes());
             let hash = format!("{:x}", hasher.finalize());
-            if hash.starts_with('0') {
-                if hash.starts_with(target) {
-                    self.last_hash = hash;
-                    self.success = true;
-                } else {
-                    self.last_hash = hash;
-                    self.nonce += 1;
-                }
+            if hash.starts_with(target) {
+                self.last_hash = hash;
+                self.success = true;
                 break;
+            } else {
+                self.last_hash = hash; // Still update last_hash for progress visibility
+                self.nonce += 1;
             }
-            self.nonce += 1;
         }
     }
 }
