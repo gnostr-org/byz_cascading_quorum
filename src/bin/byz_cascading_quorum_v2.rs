@@ -18,17 +18,13 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let level = match args.log_level.to_lowercase().as_str() {
-        "off" => LevelFilter::Off,
-        "error" => LevelFilter::Error,
-        "warn" => LevelFilter::Warn,
-        "info" => LevelFilter::Info,
-        "debug" => LevelFilter::Debug,
-        "trace" => LevelFilter::Trace,
-        _ => LevelFilter::Info,
-    };
+    let mut builder = Builder::from_default_env(); // Initialize from RUST_LOG
 
-    Builder::new().filter_level(level).init();
+    // If --log-level was provided and is not the default, override the filter
+    if args.log_level != "info" { // "info" is the default_value in #[arg(default_value = "info")]
+        builder.parse_filters(&args.log_level);
+    }
+    builder.init();
 
     run_byz_cascading_quorum_v2(args.difficulty);
 }
