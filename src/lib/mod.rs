@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 use rand_0_8_5::{Rng as RngLegacy, thread_rng as rng_legacy};
 use rand_0_9_2::{Rng as RngLatest, rng as rng_latest};
 use sha2::{Digest, Sha256};
-use tracing::{debug, trace};
+use tracing::{debug, /*info, */trace};
 
 pub use crate::p2p::evt_loop;
 
@@ -277,9 +277,10 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
                 .all(|n| n.stage == SyncStage::Sha256Mining && n.success);
 
         if !entrants_joined && first_nodes_finished {
-            println!(
+            debug!(
                 "
->>> EVENT: 2-BIT CONSENSUS REACHED. JOINING 3 NODES & ESCALATING TO 3-BIT TARGET <<<"
+>>> EVENT: 2-BIT CONSENSUS REACHED. JOINING 3 NODES & ESCALATING TO {}-BIT TARGET <<<",
+                difficulty
             );
             let start_id = nodes.len();
             for i in 0..3 {
