@@ -6,7 +6,6 @@ use rand_0_8_5::{Rng as RngLegacy, thread_rng as rng_legacy};
 use rand_0_9_2::{Rng as RngLatest, rng as rng_latest};
 use sha2::{Digest, Sha256};
 use tracing::{debug, trace};
-use log::info;
 
 pub use crate::p2p::evt_loop;
 
