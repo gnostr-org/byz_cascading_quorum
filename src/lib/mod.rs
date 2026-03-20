@@ -263,6 +263,7 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
     println!("--- [DISTRIBUTED CONSENSUS REPORT] ---");
 
     loop {
+        let mut should_print_node_details_in_round = false;
         let current_times: Vec<DateTime<Utc>> = nodes.iter().map(|n| n.get_logical_utc()).collect();
         let timestamps: Vec<i64> = current_times.iter().map(|t| t.timestamp()).collect();
         let spread = (timestamps.iter().max().unwrap() - timestamps.iter().min().unwrap()).abs();
@@ -294,7 +295,17 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
         }
 
         if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
+            let mut should_print_node_details_in_round = false;
             if log::log_enabled!(log::Level::Info) {
+                // Check if any node will print its details at info level
+                for node in &nodes {
+                    if node.stage != SyncStage::NonceGrind2Bit && node.stage != SyncStage::NonceGrind1Bit {
+                        should_print_node_details_in_round = true;
+                        break;
+                    }
+                }
+            }
+            if should_print_node_details_in_round {
                 print_report_header(round, nodes.len(), spread);
             }
         }
@@ -335,26 +346,28 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
 
             if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
                 let status = if nodes[i].success { "SOLVED" } else { "---" };
-                if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit {
-                    debug!(
-                        "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
-                        nodes[i].id,
-                        nodes[i].stage,
-                        current_times[i].format("%H:%M:%S"),
-                        nodes[i].nonce,
-                        status,
-                        &nodes[i].last_hash
-                    );
-                } else {
-                    println!(
-                        "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
-                        nodes[i].id,
-                        nodes[i].stage,
-                        current_times[i].format("%H:%M:%S"),
-                        nodes[i].nonce,
-                        status,
-                        &nodes[i].last_hash
-                    );
+                if should_print_node_details_in_round {
+                    if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit {
+                        debug!(
+                            "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
+                            nodes[i].id,
+                            nodes[i].stage,
+                            current_times[i].format("%H:%M:%S"),
+                            nodes[i].nonce,
+                            status,
+                            &nodes[i].last_hash
+                        );
+                    } else {
+                        println!(
+                            "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
+                            nodes[i].id,
+                            nodes[i].stage,
+                            current_times[i].format("%H:%M:%S"),
+                            nodes[i].nonce,
+                            status,
+                            &nodes[i].last_hash
+                        );
+                    }
                 }
             }
         }
