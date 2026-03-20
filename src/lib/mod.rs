@@ -247,17 +247,19 @@ ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
     );
     println!("{:-<85}", "");
     println!(
-        "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<20}",
+        "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<64}",
         "ID", "STAGE", "LOGICAL UTC", "NONCE", "STATUS", "LAST HASH (TRUNC)"
     );
     println!("{:-<85}", "");
 }
 
-pub fn run_byz_cascading_quorum_v2() {
-    debug!("Starting Byz Cascading Quorum V2 simulation.");
+pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
+    debug!("Starting Byz Cascading Quorum V2 simulation with difficulty: {}.", difficulty);
     let mut nodes: Vec<SyncNode> = (0..5).map(|i| SyncNode::new(i, i as i64 * 2)).collect();
     let mut round = 1;
     let mut entrants_joined = false;
+
+    let target_difficulty_str = "0".repeat(difficulty as usize);
 
     println!("--- [DISTRIBUTED CONSENSUS REPORT] ---");
 
@@ -320,8 +322,11 @@ pub fn run_byz_cascading_quorum_v2() {
                 }
                 SyncStage::Sha256Mining => {
                     if !nodes[i].success {
-                        // Target shifts to 3-bit once entrants have joined the quorum
-                        let target = if entrants_joined { "000" } else { "00" };
+                        let target = if entrants_joined {
+                            &target_difficulty_str[..]
+                        } else {
+                            "000"
+                        };
                         nodes[i].mine_sha256(target);
                     }
                 }
@@ -341,16 +346,19 @@ pub fn run_byz_cascading_quorum_v2() {
             }
         }
 
-        // EXIT: Quorum must achieve 3-bit finality
+        // EXIT: Quorum must achieve `difficulty`-bit finality
         if entrants_joined
             && nodes.iter().all(|n| {
-                n.stage == SyncStage::Sha256Mining && n.success && n.last_hash.starts_with("000")
+                n.stage == SyncStage::Sha256Mining
+                    && n.success
+                    && n.last_hash.starts_with(&target_difficulty_str[..])
             })
         {
             println!("{:-<85}", "");
             println!(
-                ">>> CONSENSUS FINALIZED ACROSS ALL {} NODES AT 3-BIT DIFFICULTY <<<",
-                nodes.len()
+                ">>> CONSENSUS FINALIZED ACROSS ALL {} NODES AT {}-BIT DIFFICULTY <<<",
+                nodes.len(),
+                difficulty
             );
             break;
         }
