@@ -238,17 +238,17 @@ pub fn get_median_diff(timestamps: &[i64], current: i64) -> i64 {
 }
 
 pub fn print_report_header(round: i32, nodes_count: usize, spread: i64) {
-    info!(
+    println!(
         "
 ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
         round, nodes_count, spread
     );
-    info!("{:-<85}", "");
-    info!(
+    println!("{:-<85}", "");
+    println!(
         "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<64}",
         "ID", "STAGE", "LOGICAL UTC", "NONCE", "STATUS", "LAST HASH (TRUNC)"
     );
-    info!("{:-<85}", "");
+    println!("{:-<85}", "");
 }
 
 pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
@@ -293,7 +293,9 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
         }
 
         if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
-            print_report_header(round, nodes.len(), spread);
+            if log::log_enabled!(log::Level::Info) {
+                print_report_header(round, nodes.len(), spread);
+            }
         }
 
         for i in 0..nodes.len() {
