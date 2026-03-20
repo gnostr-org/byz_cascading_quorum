@@ -283,7 +283,7 @@ fn print_quorum_status(
 
     //result is the first node in table
     let mut count = 0;
-    for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
+    for (_peer_id, (_system_time, _logical_time, adj, _state, _addrs)) in peer_reports {
         if count == 0 {
             if adj.clone() >= 0 {
 				//why + showing? 
@@ -366,7 +366,7 @@ fn print_quorum_status(
     // END LOCAL NODE CASE
 
     // Print Peers
-    for (peer_id, (system_time, logical_time, adj, state, addrs)) in peer_reports {
+    for (peer_id, (_system_time, logical_time, adj, state, addrs)) in peer_reports {
         let addr_str = addrs
             .first()
             .map(|a| a.to_string())
