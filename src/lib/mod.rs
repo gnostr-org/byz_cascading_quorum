@@ -332,13 +332,13 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
             if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
                 let status = if nodes[i].success { "SOLVED" } else { "---" };
                 println!(
-                    "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<20}",
+                    "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
                     nodes[i].id,
                     nodes[i].stage,
                     current_times[i].format("%H:%M:%S"),
                     nodes[i].nonce,
                     status,
-                    &nodes[i].last_hash[..16]
+                    &nodes[i].last_hash
                 );
             }
         }
