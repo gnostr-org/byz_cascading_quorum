@@ -236,22 +236,21 @@ pub fn get_median_diff(timestamps: &[i64], current: i64) -> i64 {
     diffs[diffs.len() / 2]
 }
 
-pub fn print_report_header(round: i32, nodes_count: usize, spread: i64) {
-    if log::log_enabled!(log::Level::Info) {
-        println!(
-            "
+pub fn print_report_header(round: i32, nodes_count: usize, spread: i64) -> Vec<String> {
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "
 ROUND: {:03} | NODES: {:02} | SPREAD: {}s",
-            round, nodes_count, spread
-        );
-        println!("{:-<85}", "");
-        println!(
-            "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<64}",
-            "ID", "STAGE", "LOGICAL UTC", "NONCE", "STATUS", "LAST HASH (TRUNC)"
-        );
-        println!("{:-<85}", "");
-    }
+        round, nodes_count, spread
+    ));
+    lines.push(format!("{:-<85}", ""));
+    lines.push(format!(
+        "{:<4} | {:<15} | {:<12} | {:<8} | {:<6} | {:<64}",
+        "ID", "STAGE", "LOGICAL UTC", "NONCE", "STATUS", "LAST HASH (TRUNC)"
+    ));
+    lines.push(format!("{:-<85}", ""));
+    lines
 }
-
 pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
     debug!("Starting Byz Cascading Quorum V2 simulation with difficulty: {}.", difficulty);
     let mut nodes: Vec<SyncNode> = (0..5).map(|i| SyncNode::new(i, i as i64 * 2)).collect();
@@ -263,7 +262,6 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
     println!("--- [DISTRIBUTED CONSENSUS REPORT] ---");
 
     loop {
-        let mut should_print_node_details_in_round = false;
         let current_times: Vec<DateTime<Utc>> = nodes.iter().map(|n| n.get_logical_utc()).collect();
         let timestamps: Vec<i64> = current_times.iter().map(|t| t.timestamp()).collect();
         let spread = (timestamps.iter().max().unwrap() - timestamps.iter().min().unwrap()).abs();
@@ -294,22 +292,7 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
             continue;
         }
 
-        if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
-            let mut should_print_node_details_in_round = false;
-            if log::log_enabled!(log::Level::Info) {
-                // Check if any node will print its details at info level
-                for node in &nodes {
-                    if node.stage != SyncStage::NonceGrind2Bit && node.stage != SyncStage::NonceGrind1Bit {
-                        should_print_node_details_in_round = true;
-                        break;
-                    }
-                }
-            }
-            if should_print_node_details_in_round {
-                print_report_header(round, nodes.len(), spread);
-            }
-        }
-
+        // --- Node Stage Updates (always run) ---
         for i in 0..nodes.len() {
             nodes[i].update_stage(spread, all_same_minute, global_success_reached);
             match nodes[i].stage {
@@ -343,31 +326,46 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
                     }
                 }
             };
+        }
 
-            if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
+        // --- Report Generation and Conditional Printing ---
+        if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
+            let mut report_lines: Vec<String> = Vec::new();
+
+            // Always add header lines; they will only be printed if there's actual content
+            report_lines.extend(print_report_header(round, nodes.len(), spread));
+
+            // Collect node detail lines
+            for i in 0..nodes.len() {
                 let status = if nodes[i].success { "SOLVED" } else { "---" };
-                if should_print_node_details_in_round {
-                    if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit {
-                        debug!(
-                            "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
-                            nodes[i].id,
-                            nodes[i].stage,
-                            current_times[i].format("%H:%M:%S"),
-                            nodes[i].nonce,
-                            status,
-                            &nodes[i].last_hash
-                        );
-                    } else {
-                        println!(
-                            "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
-                            nodes[i].id,
-                            nodes[i].stage,
-                            current_times[i].format("%H:%M:%S"),
-                            nodes[i].nonce,
-                            status,
-                            &nodes[i].last_hash
-                        );
-                    }
+                if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit {
+                    debug!(
+                        "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
+                        nodes[i].id,
+                        nodes[i].stage,
+                        current_times[i].format("%H:%M:%S"),
+                        nodes[i].nonce,
+                        status,
+                        &nodes[i].last_hash
+                    );
+                } else {
+                    report_lines.push(format!(
+                        "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
+                        nodes[i].id,
+                        nodes[i].stage,
+                        current_times[i].format("%H:%M:%S"),
+                        nodes[i].nonce,
+                        status,
+                        &nodes[i].last_hash
+                    ));
+                }
+            }
+
+            // Print collected report lines if info logging is enabled and there are actual content lines
+            // We check report_lines.len() > 4 because the header itself adds 4 lines.
+            if log::log_enabled!(log::Level::Info) && report_lines.len() > 4 {
+                for line in report_lines {
+                    println!("{}", line);
                 }
             }
         }
