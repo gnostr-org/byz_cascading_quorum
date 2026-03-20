@@ -331,7 +331,7 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
 
             if round == 1 || round % 5 == 0 || (entrants_joined && round < 250) {
                 let status = if nodes[i].success { "SOLVED" } else { "---" };
-                if nodes[i].stage == SyncStage::NonceGrind2Bit {
+                if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit {
                     debug!(
                         "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
                         nodes[i].id,
