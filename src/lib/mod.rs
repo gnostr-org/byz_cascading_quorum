@@ -339,6 +339,7 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
             // Collect node detail lines
             for i in 0..nodes.len() {
                 let status = if nodes[i].success { "SOLVED" } else { "---" };
+                // These stages should always log at debug level, regardless of report printing
                 if nodes[i].stage == SyncStage::NonceGrind2Bit || nodes[i].stage == SyncStage::NonceGrind1Bit || nodes[i].stage == SyncStage::Second || nodes[i].stage == SyncStage::Minute {
                     debug!(
                         "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
@@ -349,7 +350,7 @@ pub fn run_byz_cascading_quorum_v2(difficulty: u8) {
                         status,
                         &nodes[i].last_hash
                     );
-                } else {
+                } else { // Other stages print to report_lines for info level
                     report_lines.push(format!(
                         "{:02}   | {:<15?} | {:<12} | {:<8} | {:<6} | {:<64}",
                         nodes[i].id,
