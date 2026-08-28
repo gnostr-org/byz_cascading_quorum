@@ -1,107 +1,115 @@
-use std::time::Duration;
+use byz_time::{
+    SyncNodeUtc, estimate_offset_utc,
+    p2p::{MessageReassembler, Msg, MsgKind},
+};
+use chrono::{Duration, TimeZone, Utc};
 
-use byz_time::p2p::{InternalEvent, evt_loop};
-use libp2p::gossipsub::IdentTopic;
-use tracing::info;
-use tracing_subscriber::EnvFilter;
+fn chunk(message_id: &str, sequence_num: usize, total_chunks: usize, content: &str) -> Msg {
+    Msg {
+        from: Some("peer-0".to_string()),
+        kind: MsgKind::TimeSync,
+        commit_id: Some("commit-1".to_string()),
+        nostr_event: Some("event-1".to_string()),
+        message_id: Some(message_id.to_string()),
+        sequence_num: Some(sequence_num),
+        total_chunks: Some(total_chunks),
+        content: vec![content.to_string()],
+    }
+}
 
 #[tokio::test]
-async fn test_p2p_time_consensus() {
-    // Initialize tracing with a restrictive filter
-    let filter = EnvFilter::from_default_env()
-        .add_directive(tracing::Level::WARN.into())
-        .add_directive("byz_time=info".parse().unwrap())
-        .add_directive("libp2p_mdns=off".parse().unwrap());
+async fn message_reassembler_requires_chunk_metadata() {
+    let reassembler = MessageReassembler::new();
+    let msg = Msg {
+        content: vec!["missing metadata".to_string()],
+        ..Msg::default()
+    };
 
-    let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
+    let reassembled = reassembler.add_chunk_and_reassemble(msg).await;
 
-    let topic = IdentTopic::new("consensus-test");
-    let mut addrs = Vec::new();
-    let mut senders = Vec::new();
+    assert!(reassembled.is_none());
+}
 
-    let offsets = vec![0, 1, -1, 2, -2];
+#[tokio::test]
+async fn message_reassembler_reassembles_out_of_order_chunks() {
+    let reassembler = MessageReassembler::new();
 
-    // Spawn 3 nodes and collect their addresses
-    for i in 0..5 {
-        let topic_clone = topic.clone();
-        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
-        let (send_tx, send_rx) = tokio::sync::mpsc::channel(100);
-        let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
-        let initial_offset = offsets[i];
-
-        senders.push(send_tx);
-
-        tokio::spawn(async move {
-            info!(
-                "Starting Node {} with initial offset {}s",
-                i, initial_offset
-            );
-            if let Err(e) = evt_loop(
-                send_rx,
-                recv_tx,
-                topic_clone,
-                Some(addr_tx),
-                initial_offset,
-                vec![],
-                6,
-            )
+    assert!(
+        reassembler
+            .add_chunk_and_reassemble(chunk("msg-1", 2, 3, "world"))
             .await
-            {
-                eprintln!("Node {} error: {:?}", i, e);
-            }
-        });
-
-        if let Ok(addr) = addr_rx.await {
-            info!("Node {} reporting address: {}", i, addr);
-            addrs.push(addr);
-        }
-    }
-
-    // Connect nodes in a ring topology
-    if addrs.len() == 5 {
-        info!("Connecting nodes in a ring...");
-        for i in 0..addrs.len() {
-            let next_node_idx = (i + 1) % addrs.len();
-            let _ = senders[i]
-                .send(InternalEvent::Dial(addrs[next_node_idx].clone()))
-                .await;
-            info!("Node {} dialing Node {}", i, next_node_idx);
-        }
-    }
-
-    info!("Quorum running. Waiting 30 seconds for stabilization before late joiner...");
-    tokio::time::sleep(Duration::from_secs(30)).await;
-
-    // Spawn a 4th node (Late Joiner) using Node 0 as bootstrap
-    let bootstrap_addr = addrs[0].clone();
-    let topic_clone = topic.clone();
-    tokio::spawn(async move {
-        let (_addr_tx, _addr_rx) = tokio::sync::oneshot::channel::<libp2p::Multiaddr>();
-        let (_send_tx, send_rx) = tokio::sync::mpsc::channel(100);
-        let (recv_tx, _recv_rx) = tokio::sync::mpsc::channel(100);
-        let initial_offset = 60; // Huge 1-minute offset
-
-        info!(
-            "Starting Late Joiner Node 3 with initial offset {}s using bootstrap {}",
-            initial_offset, bootstrap_addr
-        );
-        if let Err(e) = evt_loop(
-            send_rx,
-            recv_tx,
-            topic_clone,
-            None,
-            initial_offset,
-            vec![bootstrap_addr],
-            6,
-        )
-        .await
-        {
-            eprintln!("Late Joiner Node 3 error: {:?}", e);
-        }
-    });
-
-    info!(
-        "Late joiner started. Observe Quorum Consensus Reports for Node 3 to join and sync. Running indefinitely."
+            .is_none()
     );
-    std::future::pending::<()>().await;
+    assert!(
+        reassembler
+            .add_chunk_and_reassemble(chunk("msg-1", 0, 3, "hello "))
+            .await
+            .is_none()
+    );
+
+    let reassembled = reassembler
+        .add_chunk_and_reassemble(chunk("msg-1", 1, 3, "async "))
+        .await
+        .expect("final chunk should reassemble the message");
+
+    assert_eq!(reassembled.from.as_deref(), Some("peer-0"));
+    assert_eq!(reassembled.kind, MsgKind::TimeSync);
+    assert_eq!(reassembled.commit_id.as_deref(), Some("commit-1"));
+    assert_eq!(reassembled.nostr_event.as_deref(), Some("event-1"));
+    assert_eq!(reassembled.content, vec!["hello async world".to_string()]);
+    assert!(reassembled.message_id.is_none());
+    assert!(reassembled.sequence_num.is_none());
+    assert!(reassembled.total_chunks.is_none());
+}
+
+#[tokio::test]
+async fn message_reassembler_ignores_duplicate_chunks() {
+    let reassembler = MessageReassembler::new();
+
+    assert!(
+        reassembler
+            .add_chunk_and_reassemble(chunk("msg-2", 0, 2, "hello "))
+            .await
+            .is_none()
+    );
+    assert!(
+        reassembler
+            .add_chunk_and_reassemble(chunk("msg-2", 0, 2, "hello "))
+            .await
+            .is_none()
+    );
+
+    let reassembled = reassembler
+        .add_chunk_and_reassemble(chunk("msg-2", 1, 2, "world"))
+        .await
+        .expect("unique final chunk should reassemble the message");
+
+    assert_eq!(reassembled.content, vec!["hello world".to_string()]);
+}
+
+#[test]
+fn estimate_offset_utc_uses_midpoint_and_uncertainty() {
+    let s = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+    let r = s + Duration::seconds(2);
+    let c = s + Duration::seconds(4);
+
+    let estimate = estimate_offset_utc(s, r, c);
+
+    assert_eq!(estimate.d, 3.0);
+    assert_eq!(estimate.a, 1.0);
+}
+
+#[test]
+fn sync_node_utc_applies_bounded_green_state_adjustment() {
+    let mut node = SyncNodeUtc::new(0, 4, 1, 30.0, 0);
+
+    node.run_sync_cycle(vec![
+        byz_time::EstimationUtc { d: 1.0, a: 0.0 },
+        byz_time::EstimationUtc { d: 1.0, a: 0.0 },
+        byz_time::EstimationUtc { d: 1.0, a: 0.0 },
+        byz_time::EstimationUtc { d: 1.0, a: 0.0 },
+    ]);
+
+    assert_eq!(node.state, "🟢");
+    assert_eq!(node.adjustment, Duration::milliseconds(400));
 }
