@@ -126,4 +126,5 @@ fn sync_node_utc_treats_negative_way_off_boundary_as_bounded() {
     ]);
 
     assert_eq!(node.state, "🟢");
+    assert_eq!(node.adjustment, Duration::milliseconds(-500));
 }
