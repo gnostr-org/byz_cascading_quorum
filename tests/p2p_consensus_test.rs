@@ -111,5 +111,19 @@ fn sync_node_utc_applies_bounded_green_state_adjustment() {
     ]);
 
     assert_eq!(node.state, "🟢");
-    assert_eq!(node.adjustment, Duration::milliseconds(400));
+    assert_eq!(node.adjustment, Duration::milliseconds(1000));
+}
+
+#[test]
+fn sync_node_utc_treats_negative_way_off_boundary_as_bounded() {
+    let mut node = SyncNodeUtc::new(0, 4, 1, 1.0, 0);
+
+    node.run_sync_cycle(vec![
+        byz_time::EstimationUtc { d: -2.0, a: 0.0 },
+        byz_time::EstimationUtc { d: -1.0, a: 0.0 },
+        byz_time::EstimationUtc { d: 0.0, a: 0.0 },
+        byz_time::EstimationUtc { d: 1.0, a: 0.0 },
+    ]);
+
+    assert_eq!(node.state, "🟢");
 }

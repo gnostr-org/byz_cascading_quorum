@@ -513,7 +513,7 @@ impl SyncNodeTime {
         let m = d_overs[self.f];
         let m_large = d_unders[self.n - 1 - self.f];
 
-        let raw_adjustment = if m > -self.way_off && m_large < self.way_off {
+        let raw_adjustment = if m >= -self.way_off && m_large < self.way_off {
             self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
@@ -521,8 +521,7 @@ impl SyncNodeTime {
             (m + m_large) / 2.0
         };
 
-        // 40% correction to visualize the halving convergence property
-        self.adj_p += raw_adjustment * 0.4;
+        self.adj_p += raw_adjustment;
     }
 }
 
@@ -702,7 +701,7 @@ impl SyncNodeUtc {
         let m = d_overs[self.f];
         let m_large = d_unders[self.n - 1 - self.f];
 
-        let raw_adj_sec = if m > -self.way_off && m_large < self.way_off {
+        let raw_adj_sec = if m >= -self.way_off && m_large < self.way_off {
             self.state = String::from("🟢");
             (m.min(0.0) + m_large.max(0.0)) / 2.0
         } else {
@@ -710,8 +709,7 @@ impl SyncNodeUtc {
             (m + m_large) / 2.0
         };
 
-        // Apply 80% of the correction (halving-style convergence)
-        let apply_ms = (raw_adj_sec * 800.0) as i64;
+        let apply_ms = (raw_adj_sec * 1000.0) as i64;
         self.adjustment = self.adjustment + Duration::milliseconds(apply_ms);
     }
 }
