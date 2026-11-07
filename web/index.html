@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101820" />
+    <title>Byzantine Cascading Quorum — WASM Lab</title>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <p class="eyebrow">BROWSER WASM LAB</p>
+        <h1>Byzantine Cascading Quorum</h1>
+        <p class="intro">Run the Rust examples in isolated workers, inspect their logs, and exchange activity over a shared libp2p gossip topic.</p>
+      </header>
+
+      <section class="network panel" aria-labelledby="network-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">PEER NETWORK</p>
+            <h2 id="network-title">Connect to the shared topic</h2>
+          </div>
+          <span id="network-status" class="status" role="status">Not connected</span>
+        </div>
+        <div class="network-controls">
+          <label for="topic">Gossip topic</label>
+          <input id="topic" value="gnostr" maxlength="128" />
+          <label for="relay-list">Relay candidates (one multiaddress per line)</label>
+          <textarea id="relay-list" rows="3" spellcheck="false"></textarea>
+          <label class="check-label"><input id="share-logs" type="checkbox" /> Share simulation log lines on the gossip topic</label>
+          <label for="local-addresses">Your browser peer address</label>
+          <textarea id="local-addresses" rows="2" readonly spellcheck="false" aria-describedby="address-help"></textarea>
+          <div class="actions">
+            <button id="copy-address" type="button" disabled>Copy address</button>
+          </div>
+          <p id="address-help" class="hint">Share a relayed address with another browser to connect directly.</p>
+          <label for="peer-address">Optional peer multiaddress</label>
+          <input id="peer-address" spellcheck="false" placeholder="/dnsaddr/.../p2p/PEER_ID/p2p-circuit/p2p/..." />
+          <div class="actions">
+            <button id="connect" class="primary" type="button">Connect</button>
+            <button id="dial-peer" type="button" disabled>Dial peer</button>
+            <button id="disconnect" type="button" disabled>Disconnect</button>
+          </div>
+          <p class="hint">Public bootstrap/relay candidates and STUN servers are third-party infrastructure. Share a peer's relayed multiaddress to connect directly; DCUtR/WebRTC can then attempt a direct path when both networks allow it. STUN providers can observe public network addresses.</p>
+        </div>
+        <form id="chat-form" class="chat-controls">
+          <label for="chat-message">Send a topic message</label>
+          <input id="chat-message" maxlength="500" autocomplete="off" placeholder="Message peers…" />
+          <button type="submit" disabled>Send</button>
+        </form>
+        <pre id="network-log" class="log network-log" role="log" aria-label="Peer network log" aria-live="off"></pre>
+      </section>
+
+      <section class="examples panel" aria-labelledby="examples-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">RUST BINARIES</p>
+            <h2 id="examples-title">Example runner</h2>
+          </div>
+        </div>
+        <div class="runner-controls">
+          <label for="example">Choose a binary example</label>
+          <select id="example">
+            <option value="byz_cascading_quorum">byz_cascading_quorum — Original cascading quorum simulation</option>
+            <option value="byz_cascading_quorum_v2">byz_cascading_quorum_v2 — Cascading quorum v2</option>
+            <option value="byz_time">byz_time — Time synchronization simulation</option>
+            <option value="utc_consensus">utc_consensus — UTC consensus simulation</option>
+            <option value="p2p_node">p2p_node — Browser WebRTC/libp2p peer</option>
+          </select>
+          <button id="run" class="primary" type="button">Run example</button>
+          <p id="run-help" class="hint">Simulation examples run in separate Web Workers and can run concurrently.</p>
+        </div>
+        <div id="runs" class="runs"></div>
+      </section>
+
+      <footer>
+        <p>Experimental demonstrations only; not a production time service. Chat messages and optionally enabled simulation logs are shared with peers on the selected gossip topic.</p>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -70,3 +70,16 @@ cargo test --all-targets --all-features
 ```
 
 The GitHub Actions workflow builds and tests all targets and features on Linux, macOS, and Windows.
+
+## Browser WASM lab
+
+The GitHub Pages site runs the four simulation binaries in separate Web Workers compiled to WebAssembly. Multiple examples can run at once; each has its own output log. The `p2p_node` menu entry starts the browser networking client, which uses WebSockets to reach relay candidates, WebRTC for browser-compatible peer connections, circuit relay reservations, DCUtR hole punching, and the same `gnostr` gossipsub topic as the native node.
+
+The editable candidate list includes the libp2p auto-relay seed and the public IPFS bootstrap addresses used by [RandyMcMillan/ipfs-gh-pages](https://github.com/RandyMcMillan/ipfs-gh-pages). These community-operated endpoints are best-effort, and not every bootstrap peer necessarily provides circuit relay service. For direct browser-to-browser connectivity, share and dial a peer's relayed multiaddress; DCUtR/WebRTC with public STUN servers can then attempt a direct path. STUN providers can observe public network addresses. GitHub Pages only hosts the static app, so remote peer connectivity depends on those external endpoints. To build the site locally, install the `wasm32-unknown-unknown` Rust target and `wasm-pack`, then run:
+
+```sh
+wasm-pack build --no-default-features --target web --out-dir web/src/pkg --out-name byz_time
+cd web && npm ci && npm run build
+```
+
+The generated site is written to `dist/`. The `WASM demo and GitHub Pages` workflow builds and deploys it from `main`.

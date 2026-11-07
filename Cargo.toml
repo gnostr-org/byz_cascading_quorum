@@ -4,9 +4,27 @@ version = "0.1.0"
 edition = "2024"
 default-run = "byz_time"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 name = "byz_time"
 path = "src/lib/mod.rs"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = ["native-p2p"]
+native-p2p = [
+  "dep:anyhow",
+  "dep:clap",
+  "dep:libp2p",
+  "dep:multistream-select",
+  "dep:serde",
+  "dep:serde_json",
+  "dep:tokio",
+  "dep:tokio-stream",
+  "dep:tracing-subscriber",
+]
 
 [[bin]]
 name = "byz_cascading_quorum"
@@ -27,12 +45,13 @@ path = "src/bin/utc_consensus.rs"
 [[bin]]
 name = "p2p_node"
 path = "src/bin/p2p_node.rs"
+required-features = ["native-p2p"]
 
 [dependencies]
-anyhow = "1.0.86"
-clap = { version = "4.5.4", features = ["derive"] }
-chrono = { version = "0.4.44", features = ["serde"] }
-libp2p = { version = "0.54.1", features = [
+anyhow = { version = "1.0.86", optional = true }
+clap = { version = "4.5.4", optional = true, features = ["derive"] }
+chrono = { version = "0.4.44", features = ["serde", "wasmbind"] }
+libp2p = { version = "0.54.1", optional = true, features = [
   "async-std",
   "autonat",
   "cbor",
@@ -54,21 +73,27 @@ libp2p = { version = "0.54.1", features = [
   "yamux",
   "websocket"
 ] }
-multistream-select = "0.13.0"
+multistream-select = { version = "0.13.0", optional = true }
 ## libp2p-identity = "0.2.10"
 
 num-bigint = "0.4.6"
-parking_lot = "0.12.2"
+parking_lot = { version = "0.12.2", optional = true }
 rand_0_8_5 = { package = "rand", version = "0.8.5" }
 rand_0_9_2 = { package = "rand", version = "0.9.2" }
-serde = { version = "1.0.198", features = ["derive"] }
-serde_json = "1.0.149"
+serde = { version = "1.0.198", optional = true, features = ["derive"] }
+serde_json = { version = "1.0.149", optional = true }
 sha2 = "0.10.9"
-terminal_size = "0.3.0"
-textwrap = "0.16.0"
-tokio = { version = "1.0", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["io-util"] }
+terminal_size = { version = "0.3.0", optional = true }
+textwrap = { version = "0.16.0", optional = true }
+tokio = { version = "1.0", optional = true, features = ["full"] }
+tokio-stream = { version = "0.1", optional = true, features = ["io-util"] }
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-ureq = "2.9.2"
+tracing-subscriber = { version = "0.3.18", optional = true, features = ["env-filter"] }
+ureq = { version = "2.9.2", optional = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }

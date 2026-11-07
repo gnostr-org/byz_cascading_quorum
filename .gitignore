@@ -2,3 +2,6 @@
 p2p_consensus_test.log
 /bin
 /target
+/dist
+/web/node_modules
+/web/src/pkg
