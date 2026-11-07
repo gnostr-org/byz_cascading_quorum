@@ -111,7 +111,7 @@ fn sync_node_utc_applies_bounded_green_state_adjustment() {
     ]);
 
     assert_eq!(node.state, "🟢");
-    assert_eq!(node.adjustment, Duration::milliseconds(1000));
+    assert_eq!(node.adjustment, Duration::milliseconds(500));
 }
 
 #[test]
