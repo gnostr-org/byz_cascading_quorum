@@ -1,4 +1,14 @@
+#[cfg(target_arch = "wasm32")]
+macro_rules! println {
+    ($($arg:tt)*) => {
+        crate::wasm::emit_log(format!($($arg)*))
+    };
+}
+
+#[cfg(feature = "native-p2p")]
 pub mod p2p;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 #[allow(deprecated)]
 use chrono::{DateTime, Duration, Timelike, Utc};
 use num_bigint::BigUint;
@@ -7,6 +17,7 @@ use rand_0_9_2::{Rng as RngLatest, rng as rng_latest};
 use sha2::{Digest, Sha256};
 use tracing::{debug, trace};
 
+#[cfg(feature = "native-p2p")]
 pub use crate::p2p::evt_loop;
 
 // --- GIT-COMPLIANT SHA-1 ENGINE ---
